@@ -1,4 +1,4 @@
-module github.com/aws-controllers-k8s/es-controller
+module github.com/aws-controllers-k8s/elasticsearchservice-controller
 
 go 1.14
 
