@@ -1,0 +1,8 @@
+ignore:
+  resource_names:
+    - Package
+    #- ElasticsearchDomain
+    - OutboundCrossClusterSearchConnection
+  field_paths:
+    # SnapshotOptions is irrelevant for Elasticsearch 5.3+
+    - CreateElasticsearchDomainRequest.SnapshotOptions
