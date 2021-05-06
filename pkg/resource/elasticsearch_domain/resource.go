@@ -67,3 +67,15 @@ func (r *resource) RuntimeMetaObject() acktypes.RuntimeMetaObject {
 func (r *resource) Conditions() []*ackv1alpha1.Condition {
 	return r.ko.Status.Conditions
 }
+
+// SetObjectMeta sets the ObjectMeta field for the resource
+func (r *resource) SetObjectMeta(meta metav1.ObjectMeta) {
+	r.ko.ObjectMeta = meta
+}
+
+// SetIdentifiers sets the Spec or Status field that is referenced as the unique
+// resource identifier
+func (r *resource) SetIdentifiers(identifier *ackv1alpha1.AWSIdentifiers) error {
+	r.ko.Status.ACKResourceMetadata.ARN = identifier.ARN
+	return nil
+}

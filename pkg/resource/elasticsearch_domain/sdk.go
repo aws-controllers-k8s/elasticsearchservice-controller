@@ -80,6 +80,8 @@ func (rm *resourceManager) sdkFind(
 	}
 	if resp.DomainStatus.AccessPolicies != nil {
 		ko.Spec.AccessPolicies = resp.DomainStatus.AccessPolicies
+	} else {
+		ko.Spec.AccessPolicies = nil
 	}
 	if resp.DomainStatus.AdvancedOptions != nil {
 		f2 := map[string]*string{}
@@ -89,6 +91,8 @@ func (rm *resourceManager) sdkFind(
 			f2[f2key] = &f2val
 		}
 		ko.Spec.AdvancedOptions = f2
+	} else {
+		ko.Spec.AdvancedOptions = nil
 	}
 	if resp.DomainStatus.AdvancedSecurityOptions != nil {
 		f3 := &svcapitypes.AdvancedSecurityOptionsInput{}
@@ -125,6 +129,8 @@ func (rm *resourceManager) sdkFind(
 			f3.SAMLOptions = f3f2
 		}
 		ko.Spec.AdvancedSecurityOptions = f3
+	} else {
+		ko.Spec.AdvancedSecurityOptions = nil
 	}
 	if resp.DomainStatus.CognitoOptions != nil {
 		f4 := &svcapitypes.CognitoOptions{}
@@ -141,12 +147,18 @@ func (rm *resourceManager) sdkFind(
 			f4.UserPoolID = resp.DomainStatus.CognitoOptions.UserPoolId
 		}
 		ko.Spec.CognitoOptions = f4
+	} else {
+		ko.Spec.CognitoOptions = nil
 	}
 	if resp.DomainStatus.Created != nil {
 		ko.Status.Created = resp.DomainStatus.Created
+	} else {
+		ko.Status.Created = nil
 	}
 	if resp.DomainStatus.Deleted != nil {
 		ko.Status.Deleted = resp.DomainStatus.Deleted
+	} else {
+		ko.Status.Deleted = nil
 	}
 	if resp.DomainStatus.DomainEndpointOptions != nil {
 		f7 := &svcapitypes.DomainEndpointOptions{}
@@ -166,12 +178,18 @@ func (rm *resourceManager) sdkFind(
 			f7.TLSSecurityPolicy = resp.DomainStatus.DomainEndpointOptions.TLSSecurityPolicy
 		}
 		ko.Spec.DomainEndpointOptions = f7
+	} else {
+		ko.Spec.DomainEndpointOptions = nil
 	}
 	if resp.DomainStatus.DomainId != nil {
 		ko.Status.DomainID = resp.DomainStatus.DomainId
+	} else {
+		ko.Status.DomainID = nil
 	}
 	if resp.DomainStatus.DomainName != nil {
 		ko.Spec.DomainName = resp.DomainStatus.DomainName
+	} else {
+		ko.Spec.DomainName = nil
 	}
 	if resp.DomainStatus.EBSOptions != nil {
 		f10 := &svcapitypes.EBSOptions{}
@@ -188,6 +206,8 @@ func (rm *resourceManager) sdkFind(
 			f10.VolumeType = resp.DomainStatus.EBSOptions.VolumeType
 		}
 		ko.Spec.EBSOptions = f10
+	} else {
+		ko.Spec.EBSOptions = nil
 	}
 	if resp.DomainStatus.ElasticsearchClusterConfig != nil {
 		f11 := &svcapitypes.ElasticsearchClusterConfig{}
@@ -226,9 +246,13 @@ func (rm *resourceManager) sdkFind(
 			f11.ZoneAwarenessEnabled = resp.DomainStatus.ElasticsearchClusterConfig.ZoneAwarenessEnabled
 		}
 		ko.Spec.ElasticsearchClusterConfig = f11
+	} else {
+		ko.Spec.ElasticsearchClusterConfig = nil
 	}
 	if resp.DomainStatus.ElasticsearchVersion != nil {
 		ko.Spec.ElasticsearchVersion = resp.DomainStatus.ElasticsearchVersion
+	} else {
+		ko.Spec.ElasticsearchVersion = nil
 	}
 	if resp.DomainStatus.EncryptionAtRestOptions != nil {
 		f13 := &svcapitypes.EncryptionAtRestOptions{}
@@ -239,9 +263,13 @@ func (rm *resourceManager) sdkFind(
 			f13.KMSKeyID = resp.DomainStatus.EncryptionAtRestOptions.KmsKeyId
 		}
 		ko.Spec.EncryptionAtRestOptions = f13
+	} else {
+		ko.Spec.EncryptionAtRestOptions = nil
 	}
 	if resp.DomainStatus.Endpoint != nil {
 		ko.Status.Endpoint = resp.DomainStatus.Endpoint
+	} else {
+		ko.Status.Endpoint = nil
 	}
 	if resp.DomainStatus.Endpoints != nil {
 		f15 := map[string]*string{}
@@ -251,6 +279,8 @@ func (rm *resourceManager) sdkFind(
 			f15[f15key] = &f15val
 		}
 		ko.Status.Endpoints = f15
+	} else {
+		ko.Status.Endpoints = nil
 	}
 	if resp.DomainStatus.LogPublishingOptions != nil {
 		f16 := map[string]*svcapitypes.LogPublishingOption{}
@@ -265,6 +295,8 @@ func (rm *resourceManager) sdkFind(
 			f16[f16key] = f16val
 		}
 		ko.Spec.LogPublishingOptions = f16
+	} else {
+		ko.Spec.LogPublishingOptions = nil
 	}
 	if resp.DomainStatus.NodeToNodeEncryptionOptions != nil {
 		f17 := &svcapitypes.NodeToNodeEncryptionOptions{}
@@ -272,9 +304,13 @@ func (rm *resourceManager) sdkFind(
 			f17.Enabled = resp.DomainStatus.NodeToNodeEncryptionOptions.Enabled
 		}
 		ko.Spec.NodeToNodeEncryptionOptions = f17
+	} else {
+		ko.Spec.NodeToNodeEncryptionOptions = nil
 	}
 	if resp.DomainStatus.Processing != nil {
 		ko.Status.Processing = resp.DomainStatus.Processing
+	} else {
+		ko.Status.Processing = nil
 	}
 	if resp.DomainStatus.ServiceSoftwareOptions != nil {
 		f19 := &svcapitypes.ServiceSoftwareOptions{}
@@ -303,6 +339,8 @@ func (rm *resourceManager) sdkFind(
 			f19.UpdateStatus = resp.DomainStatus.ServiceSoftwareOptions.UpdateStatus
 		}
 		ko.Status.ServiceSoftwareOptions = f19
+	} else {
+		ko.Status.ServiceSoftwareOptions = nil
 	}
 	if resp.DomainStatus.SnapshotOptions != nil {
 		f20 := &svcapitypes.SnapshotOptions{}
@@ -310,9 +348,13 @@ func (rm *resourceManager) sdkFind(
 			f20.AutomatedSnapshotStartHour = resp.DomainStatus.SnapshotOptions.AutomatedSnapshotStartHour
 		}
 		ko.Spec.SnapshotOptions = f20
+	} else {
+		ko.Spec.SnapshotOptions = nil
 	}
 	if resp.DomainStatus.UpgradeProcessing != nil {
 		ko.Status.UpgradeProcessing = resp.DomainStatus.UpgradeProcessing
+	} else {
+		ko.Status.UpgradeProcessing = nil
 	}
 	if resp.DomainStatus.VPCOptions != nil {
 		f22 := &svcapitypes.VPCOptions{}
@@ -335,6 +377,8 @@ func (rm *resourceManager) sdkFind(
 			f22.SubnetIDs = f22f2
 		}
 		ko.Spec.VPCOptions = f22
+	} else {
+		ko.Spec.VPCOptions = nil
 	}
 
 	rm.setStatusDefaults(ko)
@@ -395,15 +439,23 @@ func (rm *resourceManager) sdkCreate(
 	}
 	if resp.DomainStatus.Created != nil {
 		ko.Status.Created = resp.DomainStatus.Created
+	} else {
+		ko.Status.Created = nil
 	}
 	if resp.DomainStatus.Deleted != nil {
 		ko.Status.Deleted = resp.DomainStatus.Deleted
+	} else {
+		ko.Status.Deleted = nil
 	}
 	if resp.DomainStatus.DomainId != nil {
 		ko.Status.DomainID = resp.DomainStatus.DomainId
+	} else {
+		ko.Status.DomainID = nil
 	}
 	if resp.DomainStatus.Endpoint != nil {
 		ko.Status.Endpoint = resp.DomainStatus.Endpoint
+	} else {
+		ko.Status.Endpoint = nil
 	}
 	if resp.DomainStatus.Endpoints != nil {
 		f15 := map[string]*string{}
@@ -413,9 +465,13 @@ func (rm *resourceManager) sdkCreate(
 			f15[f15key] = &f15val
 		}
 		ko.Status.Endpoints = f15
+	} else {
+		ko.Status.Endpoints = nil
 	}
 	if resp.DomainStatus.Processing != nil {
 		ko.Status.Processing = resp.DomainStatus.Processing
+	} else {
+		ko.Status.Processing = nil
 	}
 	if resp.DomainStatus.ServiceSoftwareOptions != nil {
 		f19 := &svcapitypes.ServiceSoftwareOptions{}
@@ -444,9 +500,13 @@ func (rm *resourceManager) sdkCreate(
 			f19.UpdateStatus = resp.DomainStatus.ServiceSoftwareOptions.UpdateStatus
 		}
 		ko.Status.ServiceSoftwareOptions = f19
+	} else {
+		ko.Status.ServiceSoftwareOptions = nil
 	}
 	if resp.DomainStatus.UpgradeProcessing != nil {
 		ko.Status.UpgradeProcessing = resp.DomainStatus.UpgradeProcessing
+	} else {
+		ko.Status.UpgradeProcessing = nil
 	}
 
 	rm.setStatusDefaults(ko)
@@ -755,10 +815,13 @@ func (rm *resourceManager) updateConditions(
 
 	// Terminal condition
 	var terminalCondition *ackv1alpha1.Condition = nil
+	var recoverableCondition *ackv1alpha1.Condition = nil
 	for _, condition := range ko.Status.Conditions {
 		if condition.Type == ackv1alpha1.ConditionTypeTerminal {
 			terminalCondition = condition
-			break
+		}
+		if condition.Type == ackv1alpha1.ConditionTypeRecoverable {
+			recoverableCondition = condition
 		}
 	}
 
@@ -773,11 +836,34 @@ func (rm *resourceManager) updateConditions(
 		awsErr, _ := ackerr.AWSError(err)
 		errorMessage := awsErr.Message()
 		terminalCondition.Message = &errorMessage
-	} else if terminalCondition != nil {
-		terminalCondition.Status = corev1.ConditionFalse
-		terminalCondition.Message = nil
+	} else {
+		// Clear the terminal condition if no longer present
+		if terminalCondition != nil {
+			terminalCondition.Status = corev1.ConditionFalse
+			terminalCondition.Message = nil
+		}
+		// Handling Recoverable Conditions
+		if err != nil {
+			if recoverableCondition == nil {
+				// Add a new Condition containing a non-terminal error
+				recoverableCondition = &ackv1alpha1.Condition{
+					Type: ackv1alpha1.ConditionTypeRecoverable,
+				}
+				ko.Status.Conditions = append(ko.Status.Conditions, recoverableCondition)
+			}
+			recoverableCondition.Status = corev1.ConditionTrue
+			awsErr, _ := ackerr.AWSError(err)
+			errorMessage := err.Error()
+			if awsErr != nil {
+				errorMessage = awsErr.Message()
+			}
+			recoverableCondition.Message = &errorMessage
+		} else if recoverableCondition != nil {
+			recoverableCondition.Status = corev1.ConditionFalse
+			recoverableCondition.Message = nil
+		}
 	}
-	if terminalCondition != nil {
+	if terminalCondition != nil || recoverableCondition != nil {
 		return &resource{ko}, true // updated
 	}
 	return nil, false // not updated

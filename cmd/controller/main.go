@@ -28,6 +28,7 @@ import (
 
 	svctypes "github.com/aws-controllers-k8s/elasticsearchservice-controller/apis/v1alpha1"
 	svcresource "github.com/aws-controllers-k8s/elasticsearchservice-controller/pkg/resource"
+	ackv1alpha1 "github.com/aws-controllers-k8s/runtime/apis/core/v1alpha1"
 
 	_ "github.com/aws-controllers-k8s/elasticsearchservice-controller/pkg/resource/elasticsearch_domain"
 )
@@ -42,6 +43,7 @@ var (
 func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
 	_ = svctypes.AddToScheme(scheme)
+	_ = ackv1alpha1.AddToScheme(scheme)
 }
 
 func main() {
