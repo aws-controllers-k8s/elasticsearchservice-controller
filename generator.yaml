@@ -6,3 +6,11 @@ ignore:
   field_paths:
     # SnapshotOptions is irrelevant for Elasticsearch 5.3+
     - CreateElasticsearchDomainRequest.SnapshotOptions
+resources:
+  ElasticsearchDomain:
+    exceptions:
+      errors:
+        404:
+          code: ResourceNotFoundException
+      terminal_codes:
+        - ValidationException

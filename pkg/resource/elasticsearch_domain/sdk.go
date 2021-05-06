@@ -61,7 +61,7 @@ func (rm *resourceManager) sdkFind(
 	resp, respErr := rm.sdkapi.DescribeElasticsearchDomainWithContext(ctx, input)
 	rm.metrics.RecordAPICall("READ_ONE", "DescribeElasticsearchDomain", respErr)
 	if respErr != nil {
-		if awsErr, ok := ackerr.AWSError(respErr); ok && awsErr.Code() == "UNKNOWN" {
+		if awsErr, ok := ackerr.AWSError(respErr); ok && awsErr.Code() == "ResourceNotFoundException" {
 			return nil, ackerr.NotFound
 		}
 		return nil, respErr
@@ -873,6 +873,17 @@ func (rm *resourceManager) updateConditions(
 // and if the exception indicates that it is a Terminal exception
 // 'Terminal' exception are specified in generator configuration
 func (rm *resourceManager) terminalAWSError(err error) bool {
-	// No terminal_errors specified for this resource in generator config
-	return false
+	if err == nil {
+		return false
+	}
+	awsErr, ok := ackerr.AWSError(err)
+	if !ok {
+		return false
+	}
+	switch awsErr.Code() {
+	case "ValidationException":
+		return true
+	default:
+		return false
+	}
 }

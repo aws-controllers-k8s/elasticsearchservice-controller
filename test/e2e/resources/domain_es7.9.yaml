@@ -5,3 +5,9 @@ metadata:
 spec:
   domainName: $DOMAIN_NAME
   elasticsearchVersion: "7.9"
+  # EBSOptions is required for default AES domain instance type
+  # m4.large.elasticsearch
+  ebsOptions:
+    ebsEnabled: true
+    volumeSize: 10
+    volumeType: gp2
