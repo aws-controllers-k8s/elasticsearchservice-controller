@@ -29,12 +29,12 @@ from e2e.replacement_values import REPLACEMENT_VALUES
 
 RESOURCE_PLURAL = 'elasticsearchdomains'
 
-DELETE_WAIT_AFTER_SECONDS = 20
+DELETE_WAIT_AFTER_SECONDS = 180
 CREATE_INTERVAL_SLEEP_SECONDS = 15
 # Time to wait before we get to an expected RUNNING state.
 # In my experience, it regularly takes more than 6 minutes to create a
 # single-instance RabbitMQ broker...
-CREATE_TIMEOUT_SECONDS = 600
+CREATE_TIMEOUT_SECONDS = 900
 
 
 @pytest.fixture(scope="module")
@@ -81,11 +81,13 @@ class TestDomain:
         aws_res = es_client.describe_elasticsearch_domain(DomainName=resource_name)
         assert aws_res is not None
 
+        logging.info(aws_res)
+
         now = datetime.datetime.now()
         timeout = now + datetime.timedelta(seconds=CREATE_TIMEOUT_SECONDS)
 
         # TODO(jaypipes): Move this into generic AWS-side waiter
-        while aws_res['Created'] != True:
+        while aws_res['DomainStatus']['Created'] != True:
             if datetime.datetime.now() >= timeout:
                 raise Exception("failed to find created ES Domain before timeout")
             time.sleep(CREATE_INTERVAL_SLEEP_SECONDS)
@@ -102,7 +104,7 @@ class TestDomain:
         try:
             es_client.describe_elasticsearch_domain(DomainName=resource_name)
             res_found = True
-        except es_client.exceptions.NotFoundException:
+        except es_client.exceptions.ResourceNotFoundException:
             pass
 
         assert res_found is False
