@@ -1,0 +1,7 @@
+apiVersion: elasticsearchservice.services.k8s.aws/v1alpha1
+kind: ElasticsearchDomain
+metadata:
+  name: $DOMAIN_NAME
+spec:
+  domainName: $DOMAIN_NAME
+  elasticsearchVersion: "7.9"
