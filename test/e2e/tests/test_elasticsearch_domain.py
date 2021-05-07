@@ -29,11 +29,11 @@ from e2e.replacement_values import REPLACEMENT_VALUES
 
 RESOURCE_PLURAL = 'elasticsearchdomains'
 
-DELETE_WAIT_AFTER_SECONDS = 180
-CREATE_INTERVAL_SLEEP_SECONDS = 15
-# Time to wait before we get to an expected RUNNING state.
-# In my experience, it regularly takes more than 6 minutes to create a
-# single-instance RabbitMQ broker...
+DELETE_WAIT_INTERVAL_SLEEP_SECONDS = 15
+DELETE_WAIT_AFTER_SECONDS = 30
+DELETE_TIMEOUT_SECONDS = 240
+
+CREATE_WAIT_INTERVAL_SLEEP_SECONDS = 15
 CREATE_TIMEOUT_SECONDS = 900
 
 
@@ -75,36 +75,53 @@ class TestDomain:
         assert cr is not None
         assert k8s.get_resource_exists(ref)
 
-        logging.info(cr)
+        logging.debug(cr)
 
         # Let's check that the domain appears in AES
         aws_res = es_client.describe_elasticsearch_domain(DomainName=resource_name)
-        assert aws_res is not None
 
-        logging.info(aws_res)
+        logging.debug(aws_res)
 
         now = datetime.datetime.now()
         timeout = now + datetime.timedelta(seconds=CREATE_TIMEOUT_SECONDS)
 
-        # TODO(jaypipes): Move this into generic AWS-side waiter
-        while aws_res['DomainStatus']['Created'] != True:
+        # An ES Domain gets its `DomainStatus.Created` field set to `True`
+        # almost immediately, however the `DomainStatus.Processing` field is
+        # set to `True` while Elasticsearch is being installed onto the worker
+        # node(s). If you attempt to delete an ES Domain that is both Created
+        # and Processing == True, AES will set the `DomainStatus.Deleted` field
+        # to True as well, so the `Created`, `Processing` and `Deleted` fields
+        # will all be True. It typically takes upwards of 4-6 minutes for an ES
+        # Domain to reach Created = True && Processing = False and then another
+        # 2 minutes or so after calling DeleteElasticsearchDomain for the ES
+        # Domain to no longer appear in DescribeElasticsearchDomain API call.
+        while aws_res['DomainStatus']['Processing'] == True:
             if datetime.datetime.now() >= timeout:
-                raise Exception("failed to find created ES Domain before timeout")
-            time.sleep(CREATE_INTERVAL_SLEEP_SECONDS)
+                pytest.fail("Timed out waiting for ES Domain to get DomainStatus.Processing == False")
+            time.sleep(CREATE_WAIT_INTERVAL_SLEEP_SECONDS)
+
             aws_res = es_client.describe_elasticsearch_domain(DomainName=resource_name)
-            assert aws_res is not None
+
+        logging.info(f"ES Domain {resource_name} creation succeeded and DomainStatus.Processing is now False")
 
         # Delete the k8s resource on teardown of the module
         k8s.delete_custom_resource(ref)
 
+        logging.info(f"Deleted CR for ES Domain {resource_name}. Waiting {DELETE_WAIT_AFTER_SECONDS} before checking existence in AWS API")
         time.sleep(DELETE_WAIT_AFTER_SECONDS)
 
-        # Domain should no longer appear in AES
-        res_found = False
-        try:
-            es_client.describe_elasticsearch_domain(DomainName=resource_name)
-            res_found = True
-        except es_client.exceptions.ResourceNotFoundException:
-            pass
+        now = datetime.datetime.now()
+        timeout = now + datetime.timedelta(seconds=DELETE_TIMEOUT_SECONDS)
 
-        assert res_found is False
+        # Domain should no longer appear in AES
+        while True:
+            if datetime.datetime.now() >= timeout:
+                pytest.fail("Timed out waiting for ES Domain to being deleted in AES API")
+            time.sleep(DELETE_WAIT_INTERVAL_SLEEP_SECONDS)
+
+            try:
+                aws_res = es_client.describe_elasticsearch_domain(DomainName=resource_name)
+                if aws_res['DomainStatus']['Deleted'] == False:
+                    pytest.fail("DomainStatus.Deleted is False for ES Domain that was deleted.")
+            except es_client.exceptions.ResourceNotFoundException:
+                break
