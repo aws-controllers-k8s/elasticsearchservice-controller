@@ -1,0 +1,18 @@
+apiVersion: elasticsearchservice.services.k8s.aws/v1alpha1
+kind: ElasticsearchDomain
+metadata:
+  name: $DOMAIN_NAME
+spec:
+  domainName: $DOMAIN_NAME
+  elasticsearchVersion: "7.9"
+  elasticsearchClusterConfig:
+    dedicatedMasterEnabled: true
+    dedicatedMasterCount: $MASTER_NODE_COUNT
+    instanceCount: $DATA_NODE_COUNT
+    zoneAwarenessEnabled: true
+  # EBSOptions is required for default AES domain instance type
+  # m4.large.elasticsearch
+  ebsOptions:
+    ebsEnabled: true
+    volumeSize: 10
+    volumeType: gp2

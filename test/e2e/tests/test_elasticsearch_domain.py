@@ -26,6 +26,7 @@ from acktest.k8s import resource as k8s
 
 from e2e import service_marker, CRD_GROUP, CRD_VERSION, load_resource
 from e2e.replacement_values import REPLACEMENT_VALUES
+from collections import namedtuple
 
 RESOURCE_PLURAL = 'elasticsearchdomains'
 
@@ -34,7 +35,9 @@ DELETE_WAIT_AFTER_SECONDS = 30
 DELETE_TIMEOUT_SECONDS = 10*60
 
 CREATE_WAIT_INTERVAL_SLEEP_SECONDS = 20
-CREATE_TIMEOUT_SECONDS = 20*60
+CREATE_TIMEOUT_SECONDS = 30*60
+
+Domain = namedtuple('Domain', 'name,data_node_count,master_node_count,is_zone_aware,is_vpc,vpcs')
 
 
 @pytest.fixture(scope="module")
@@ -49,14 +52,40 @@ def get_resource_arn(self, resource: Dict):
     return resource['status']['ackResourceMetadata']['arn']
 
 
+def wait_for_create_or_die(es_client, resource, timeout):
+    aws_res = es_client.describe_elasticsearch_domain(DomainName=resource.name)
+    while aws_res['DomainStatus']['Processing'] == True:
+        if datetime.datetime.now() >= timeout:
+            pytest.fail("Timed out waiting for ES Domain to get DomainStatus.Processing == False")
+        time.sleep(CREATE_WAIT_INTERVAL_SLEEP_SECONDS)
+
+        aws_res = es_client.describe_elasticsearch_domain(DomainName=resource.name)
+
+    return aws_res
+
+
+def wait_for_delete_or_die(es_client, resource, timeout):
+    while True:
+        if datetime.datetime.now() >= timeout:
+            pytest.fail("Timed out waiting for ES Domain to being deleted in AES API")
+        time.sleep(DELETE_WAIT_INTERVAL_SLEEP_SECONDS)
+
+        try:
+            aws_res = es_client.describe_elasticsearch_domain(DomainName=resource.name)
+            if aws_res['DomainStatus']['Deleted'] == False:
+                pytest.fail("DomainStatus.Deleted is False for ES Domain that was deleted.")
+        except es_client.exceptions.ResourceNotFoundException:
+            break
+
+
 @service_marker
 @pytest.mark.canary
 class TestDomain:
     def test_create_delete_7_9(self, es_client):
-        resource_name = "my-es-domain"
+        resource = Domain("my-es-domain",1,0,False,False,[])
 
         replacements = REPLACEMENT_VALUES.copy()
-        replacements["DOMAIN_NAME"] = resource_name
+        replacements["DOMAIN_NAME"] = resource.name
 
         resource_data = load_resource(
             "domain_es7.9",
@@ -67,7 +96,7 @@ class TestDomain:
         # Create the k8s resource
         ref = k8s.CustomResourceReference(
             CRD_GROUP, CRD_VERSION, RESOURCE_PLURAL,
-            resource_name, namespace="default",
+            resource.name, namespace="default",
         )
         k8s.create_custom_resource(ref, resource_data)
         cr = k8s.wait_resource_consumed_by_controller(ref)
@@ -78,7 +107,7 @@ class TestDomain:
         logging.debug(cr)
 
         # Let's check that the domain appears in AES
-        aws_res = es_client.describe_elasticsearch_domain(DomainName=resource_name)
+        aws_res = es_client.describe_elasticsearch_domain(DomainName=resource.name)
 
         logging.debug(aws_res)
 
@@ -95,33 +124,79 @@ class TestDomain:
         # Domain to reach Created = True && Processing = False and then another
         # 2 minutes or so after calling DeleteElasticsearchDomain for the ES
         # Domain to no longer appear in DescribeElasticsearchDomain API call.
-        while aws_res['DomainStatus']['Processing'] == True:
-            if datetime.datetime.now() >= timeout:
-                pytest.fail("Timed out waiting for ES Domain to get DomainStatus.Processing == False")
-            time.sleep(CREATE_WAIT_INTERVAL_SLEEP_SECONDS)
+        aws_res = wait_for_create_or_die(es_client, resource, timeout)
+        logging.info(f"ES Domain {resource.name} creation succeeded and DomainStatus.Processing is now False")
 
-            aws_res = es_client.describe_elasticsearch_domain(DomainName=resource_name)
-
-        logging.info(f"ES Domain {resource_name} creation succeeded and DomainStatus.Processing is now False")
+        assert aws_res['DomainStatus']['ElasticsearchVersion'] == '7.9'
+        assert aws_res['DomainStatus']['Created'] == True
+        assert aws_res['DomainStatus']['ElasticsearchClusterConfig']['InstanceCount'] == resource.data_node_count
+        assert aws_res['DomainStatus']['ElasticsearchClusterConfig']['ZoneAwarenessEnabled'] == resource.is_zone_aware
 
         # Delete the k8s resource on teardown of the module
         k8s.delete_custom_resource(ref)
 
-        logging.info(f"Deleted CR for ES Domain {resource_name}. Waiting {DELETE_WAIT_AFTER_SECONDS} before checking existence in AWS API")
+        logging.info(f"Deleted CR for ES Domain {resource.name}. Waiting {DELETE_WAIT_AFTER_SECONDS} before checking existence in AWS API")
         time.sleep(DELETE_WAIT_AFTER_SECONDS)
 
         now = datetime.datetime.now()
         timeout = now + datetime.timedelta(seconds=DELETE_TIMEOUT_SECONDS)
 
         # Domain should no longer appear in AES
-        while True:
-            if datetime.datetime.now() >= timeout:
-                pytest.fail("Timed out waiting for ES Domain to being deleted in AES API")
-            time.sleep(DELETE_WAIT_INTERVAL_SLEEP_SECONDS)
+        wait_for_delete_or_die(es_client, resource, timeout)
 
-            try:
-                aws_res = es_client.describe_elasticsearch_domain(DomainName=resource_name)
-                if aws_res['DomainStatus']['Deleted'] == False:
-                    pytest.fail("DomainStatus.Deleted is False for ES Domain that was deleted.")
-            except es_client.exceptions.ResourceNotFoundException:
-                break
+
+    def test_create_delete_2d3m_multi_az_no_vpc_7_9(self, es_client):
+        resource = Domain("my-es-domain2",2,3,True,False,[])
+
+        replacements = REPLACEMENT_VALUES.copy()
+        replacements["DOMAIN_NAME"] = resource.name
+        replacements["MASTER_NODE_COUNT"] = str(resource.master_node_count)
+        replacements["DATA_NODE_COUNT"] = str(resource.data_node_count)
+
+        resource_data = load_resource(
+            "domain_es_xdym_multi_az7.9",
+            additional_replacements=replacements,
+        )
+        logging.error(resource_data)
+
+        # Create the k8s resource
+        ref = k8s.CustomResourceReference(
+            CRD_GROUP, CRD_VERSION, RESOURCE_PLURAL,
+            resource.name, namespace="default",
+        )
+        k8s.create_custom_resource(ref, resource_data)
+        cr = k8s.wait_resource_consumed_by_controller(ref)
+
+        assert cr is not None
+        assert k8s.get_resource_exists(ref)
+
+        logging.debug(cr)
+
+        # Let's check that the domain appears in AES
+        aws_res = es_client.describe_elasticsearch_domain(DomainName=resource.name)
+
+        logging.debug(aws_res)
+
+        now = datetime.datetime.now()
+        timeout = now + datetime.timedelta(seconds=CREATE_TIMEOUT_SECONDS)
+
+        aws_res = wait_for_create_or_die(es_client, resource, timeout)
+        logging.info(f"ES Domain {resource.name} creation succeeded and DomainStatus.Processing is now False")
+
+        assert aws_res['DomainStatus']['ElasticsearchVersion'] == '7.9'
+        assert aws_res['DomainStatus']['Created'] == True
+        assert aws_res['DomainStatus']['ElasticsearchClusterConfig']['InstanceCount'] == resource.data_node_count
+        assert aws_res['DomainStatus']['ElasticsearchClusterConfig']['DedicatedMasterCount'] == resource.master_node_count
+        assert aws_res['DomainStatus']['ElasticsearchClusterConfig']['ZoneAwarenessEnabled'] == resource.is_zone_aware
+
+        # Delete the k8s resource on teardown of the module
+        k8s.delete_custom_resource(ref)
+
+        logging.info(f"Deleted CR for ES Domain {resource.name}. Waiting {DELETE_WAIT_AFTER_SECONDS} before checking existence in AWS API")
+        time.sleep(DELETE_WAIT_AFTER_SECONDS)
+
+        now = datetime.datetime.now()
+        timeout = now + datetime.timedelta(seconds=DELETE_TIMEOUT_SECONDS)
+
+        # Domain should no longer appear in AES
+        wait_for_delete_or_die(es_client, resource, timeout)
