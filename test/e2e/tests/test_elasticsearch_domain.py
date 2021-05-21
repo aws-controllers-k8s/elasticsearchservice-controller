@@ -26,7 +26,7 @@ from acktest.k8s import resource as k8s
 
 from e2e import service_marker, CRD_GROUP, CRD_VERSION, load_resource
 from e2e.replacement_values import REPLACEMENT_VALUES
-from collections import namedtuple
+from dataclasses import dataclass, field
 
 RESOURCE_PLURAL = 'elasticsearchdomains'
 
@@ -37,7 +37,14 @@ DELETE_TIMEOUT_SECONDS = 10*60
 CREATE_WAIT_INTERVAL_SLEEP_SECONDS = 20
 CREATE_TIMEOUT_SECONDS = 30*60
 
-Domain = namedtuple('Domain', 'name,data_node_count,master_node_count,is_zone_aware,is_vpc,vpcs')
+@dataclass
+class Domain:
+    name: str
+    data_node_count: int
+    master_node_count: int = 0
+    is_zone_aware: bool = False
+    is_vpc: bool = False
+    vpcs: list = field(default_factory=list)
 
 
 @pytest.fixture(scope="module")
@@ -82,7 +89,7 @@ def wait_for_delete_or_die(es_client, resource, timeout):
 @pytest.mark.canary
 class TestDomain:
     def test_create_delete_7_9(self, es_client):
-        resource = Domain("my-es-domain",1,0,False,False,[])
+        resource = Domain(name="my-es-domain", data_node_count=1)
 
         replacements = REPLACEMENT_VALUES.copy()
         replacements["DOMAIN_NAME"] = resource.name
@@ -91,7 +98,7 @@ class TestDomain:
             "domain_es7.9",
             additional_replacements=replacements,
         )
-        logging.error(resource_data)
+        logging.debug(resource_data)
 
         # Create the k8s resource
         ref = k8s.CustomResourceReference(
@@ -146,7 +153,7 @@ class TestDomain:
 
 
     def test_create_delete_2d3m_multi_az_no_vpc_7_9(self, es_client):
-        resource = Domain("my-es-domain2",2,3,True,False,[])
+        resource = Domain(name="my-es-domain2",data_node_count=2,master_node_count=3,is_zone_aware=True)
 
         replacements = REPLACEMENT_VALUES.copy()
         replacements["DOMAIN_NAME"] = resource.name
@@ -157,7 +164,7 @@ class TestDomain:
             "domain_es_xdym_multi_az7.9",
             additional_replacements=replacements,
         )
-        logging.error(resource_data)
+        logging.debug(resource_data)
 
         # Create the k8s resource
         ref = k8s.CustomResourceReference(
