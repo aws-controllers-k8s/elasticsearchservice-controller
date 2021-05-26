@@ -27,6 +27,7 @@ from acktest.k8s import resource as k8s
 from e2e import service_marker, CRD_GROUP, CRD_VERSION, load_resource
 from e2e.replacement_values import REPLACEMENT_VALUES
 from dataclasses import dataclass, field
+from e2e.bootstrap_resources import get_bootstrap_resources
 
 RESOURCE_PLURAL = 'elasticsearchdomains'
 
@@ -37,6 +38,7 @@ DELETE_TIMEOUT_SECONDS = 10*60
 CREATE_WAIT_INTERVAL_SLEEP_SECONDS = 20
 CREATE_TIMEOUT_SECONDS = 30*60
 
+
 @dataclass
 class Domain:
     name: str
@@ -44,12 +46,17 @@ class Domain:
     master_node_count: int = 0
     is_zone_aware: bool = False
     is_vpc: bool = False
-    vpcs: list = field(default_factory=list)
+    vpc_id: str = None
+    vpc_subnets: list = field(default_factory=list)
 
 
 @pytest.fixture(scope="module")
 def es_client():
     return boto3.client('es')
+
+@pytest.fixture(scope="module")
+def resources():
+    return get_bootstrap_resources()
 
 
 # TODO(jaypipes): Move to k8s common library
@@ -88,7 +95,7 @@ def wait_for_delete_or_die(es_client, resource, timeout):
 @service_marker
 @pytest.mark.canary
 class TestDomain:
-    def test_create_delete_7_9(self, es_client):
+    def test_create_delete_7_9(self, es_client, resources):
         resource = Domain(name="my-es-domain", data_node_count=1)
 
         replacements = REPLACEMENT_VALUES.copy()
@@ -152,7 +159,7 @@ class TestDomain:
         wait_for_delete_or_die(es_client, resource, timeout)
 
 
-    def test_create_delete_2d3m_multi_az_no_vpc_7_9(self, es_client):
+    def test_create_delete_2d3m_multi_az_no_vpc_7_9(self, es_client, resources):
         resource = Domain(name="my-es-domain2",data_node_count=2,master_node_count=3,is_zone_aware=True)
 
         replacements = REPLACEMENT_VALUES.copy()
@@ -195,6 +202,76 @@ class TestDomain:
         assert aws_res['DomainStatus']['ElasticsearchClusterConfig']['InstanceCount'] == resource.data_node_count
         assert aws_res['DomainStatus']['ElasticsearchClusterConfig']['DedicatedMasterCount'] == resource.master_node_count
         assert aws_res['DomainStatus']['ElasticsearchClusterConfig']['ZoneAwarenessEnabled'] == resource.is_zone_aware
+
+        # Delete the k8s resource on teardown of the module
+        k8s.delete_custom_resource(ref)
+
+        logging.info(f"Deleted CR for ES Domain {resource.name}. Waiting {DELETE_WAIT_AFTER_SECONDS} before checking existence in AWS API")
+        time.sleep(DELETE_WAIT_AFTER_SECONDS)
+
+        now = datetime.datetime.now()
+        timeout = now + datetime.timedelta(seconds=DELETE_TIMEOUT_SECONDS)
+
+        # Domain should no longer appear in AES
+        wait_for_delete_or_die(es_client, resource, timeout)
+
+
+    def test_create_delete_2d3m_multi_az_vpc_2_subnet7_9(self, es_client, resources):
+        resource = Domain(
+            name="my-es-domain3",
+            data_node_count=2,
+            master_node_count=3,
+            is_zone_aware=True,
+            is_vpc=True,
+            vpc_id=resources.VPCID,
+            vpc_subnets=resources.VPCSubnetIDs,
+        )
+
+        logging.debug(resource)
+
+        replacements = REPLACEMENT_VALUES.copy()
+        replacements["DOMAIN_NAME"] = resource.name
+        replacements["MASTER_NODE_COUNT"] = str(resource.master_node_count)
+        replacements["DATA_NODE_COUNT"] = str(resource.data_node_count)
+        replacements["SUBNETS"] = str(resource.vpc_subnets)
+
+        resource_data = load_resource(
+            "domain_es_xdym_multi_az_vpc7.9",
+            additional_replacements=replacements,
+        )
+        logging.debug(resource_data)
+
+        # Create the k8s resource
+        ref = k8s.CustomResourceReference(
+            CRD_GROUP, CRD_VERSION, RESOURCE_PLURAL,
+            resource.name, namespace="default",
+        )
+        k8s.create_custom_resource(ref, resource_data)
+        cr = k8s.wait_resource_consumed_by_controller(ref)
+
+        assert cr is not None
+        assert k8s.get_resource_exists(ref)
+
+        logging.debug(cr)
+
+        # Let's check that the domain appears in AES
+        aws_res = es_client.describe_elasticsearch_domain(DomainName=resource.name)
+
+        logging.debug(aws_res)
+
+        now = datetime.datetime.now()
+        timeout = now + datetime.timedelta(seconds=CREATE_TIMEOUT_SECONDS)
+
+        aws_res = wait_for_create_or_die(es_client, resource, timeout)
+        logging.info(f"ES Domain {resource.name} creation succeeded and DomainStatus.Processing is now False")
+
+        assert aws_res['DomainStatus']['ElasticsearchVersion'] == '7.9'
+        assert aws_res['DomainStatus']['Created'] == True
+        assert aws_res['DomainStatus']['ElasticsearchClusterConfig']['InstanceCount'] == resource.data_node_count
+        assert aws_res['DomainStatus']['ElasticsearchClusterConfig']['DedicatedMasterCount'] == resource.master_node_count
+        assert aws_res['DomainStatus']['ElasticsearchClusterConfig']['ZoneAwarenessEnabled'] == resource.is_zone_aware
+        assert aws_res['DomainStatus']['VPCOptions']['VPCId'] == resource.vpc_id
+        assert set(aws_res['DomainStatus']['VPCOptions']['SubnetIds']) == set(resource.vpc_subnets)
 
         # Delete the k8s resource on teardown of the module
         k8s.delete_custom_resource(ref)
