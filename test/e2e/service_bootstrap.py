@@ -30,7 +30,6 @@ from e2e.bootstrap_resources import (
 
 
 def create_vpc(ec2) -> str:
-
     logging.debug(f"Creating VPC with CIDR {VPC_CIDR_BLOCK}")
 
     resp = ec2.create_vpc(
@@ -59,10 +58,7 @@ def create_vpc(ec2) -> str:
     return vpc_id
 
 
-def create_subnet(ec2, vpc_id: str, az: str, cidr=VPC_SUBNET_CIDR_BLOCK[0]) -> str:
-    region = identity.get_region()
-    ec2 = boto3.client("ec2", region_name=region)
-
+def create_subnet(ec2, vpc_id: str, az: str, cidr: str) -> str:
     resp = ec2.create_subnet(
         CidrBlock=cidr,
         VpcId=vpc_id,
@@ -96,7 +92,7 @@ def service_bootstrap() -> dict:
 
     region = identity.get_region()
     ec2 = boto3.client("ec2", region_name=region)
-    # only normal regions, no localzones
+    # only normal zones, no localzones
     azs = map(lambda zone: zone['ZoneName'],
             filter(lambda zone: zone['OptInStatus'] == 'opt-in-not-required', ec2.describe_availability_zones()['AvailabilityZones']))
 

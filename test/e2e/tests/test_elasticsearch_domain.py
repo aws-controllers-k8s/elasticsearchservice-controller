@@ -95,7 +95,7 @@ def wait_for_delete_or_die(es_client, resource, timeout):
 @service_marker
 @pytest.mark.canary
 class TestDomain:
-    def test_create_delete_7_9(self, es_client, resources):
+    def test_create_delete_7_9(self, es_client):
         resource = Domain(name="my-es-domain", data_node_count=1)
 
         replacements = REPLACEMENT_VALUES.copy()
@@ -159,7 +159,7 @@ class TestDomain:
         wait_for_delete_or_die(es_client, resource, timeout)
 
 
-    def test_create_delete_2d3m_multi_az_no_vpc_7_9(self, es_client, resources):
+    def test_create_delete_2d3m_multi_az_no_vpc_7_9(self, es_client):
         resource = Domain(name="my-es-domain2",data_node_count=2,master_node_count=3,is_zone_aware=True)
 
         replacements = REPLACEMENT_VALUES.copy()
