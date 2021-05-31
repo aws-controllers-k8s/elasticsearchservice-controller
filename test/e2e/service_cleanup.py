@@ -49,10 +49,11 @@ def service_cleanup(config: dict):
         **config
     )
 
-    try:
-        delete_subnet(resources.VPCSubnetID)
-    except:
-        logging.exception(f"Unable to delete VPC subnet {resources.VPCSubnetID}")
+    for subnet in resources.VPCSubnetIDs:
+        try:
+            delete_subnet(subnet)
+        except:
+            logging.exception(f"Unable to delete VPC subnet {subnet}")
 
     try:
         delete_vpc(resources.VPCID)

@@ -18,13 +18,13 @@ from dataclasses import dataclass
 from e2e import bootstrap_directory
 from acktest.resources import read_bootstrap_config
 
-VPC_CIDR_BLOCK = "10.0.82.0/28"
-VPC_SUBNET_CIDR_BLOCK = "10.0.82.0/28"
+VPC_CIDR_BLOCK = "10.0.82.0/27"
+VPC_SUBNET_CIDR_BLOCK = ["10.0.82.0/28","10.0.82.16/28"]
 
 @dataclass
 class TestBootstrapResources:
     VPCID: str
-    VPCSubnetID: str
+    VPCSubnetIDs: list
 
 _bootstrap_resources = None
 
