@@ -22,6 +22,7 @@ import (
 	ackv1alpha1 "github.com/aws-controllers-k8s/runtime/apis/core/v1alpha1"
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
+	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
 	"github.com/aws/aws-sdk-go/aws"
 	svcsdk "github.com/aws/aws-sdk-go/service/elasticsearchservice"
 	corev1 "k8s.io/api/core/v1"
@@ -45,7 +46,10 @@ var (
 func (rm *resourceManager) sdkFind(
 	ctx context.Context,
 	r *resource,
-) (*resource, error) {
+) (latest *resource, err error) {
+	rlog := ackrtlog.FromContext(ctx)
+	exit := rlog.Trace("rm.sdkFind")
+	defer exit(err)
 	// If any required fields in the input shape are missing, AWS resource is
 	// not created yet. Return NotFound here to indicate to callers that the
 	// resource isn't yet created.
@@ -58,13 +62,14 @@ func (rm *resourceManager) sdkFind(
 		return nil, err
 	}
 
-	resp, respErr := rm.sdkapi.DescribeElasticsearchDomainWithContext(ctx, input)
-	rm.metrics.RecordAPICall("READ_ONE", "DescribeElasticsearchDomain", respErr)
-	if respErr != nil {
-		if awsErr, ok := ackerr.AWSError(respErr); ok && awsErr.Code() == "ResourceNotFoundException" {
+	var resp *svcsdk.DescribeElasticsearchDomainOutput
+	resp, err = rm.sdkapi.DescribeElasticsearchDomainWithContext(ctx, input)
+	rm.metrics.RecordAPICall("READ_ONE", "DescribeElasticsearchDomain", err)
+	if err != nil {
+		if awsErr, ok := ackerr.AWSError(err); ok && awsErr.Code() == "ResourceNotFoundException" {
 			return nil, ackerr.NotFound
 		}
-		return nil, respErr
+		return nil, err
 	}
 
 	// Merge in the information we read from the API call above to the copy of
@@ -132,21 +137,27 @@ func (rm *resourceManager) sdkFind(
 	} else {
 		ko.Spec.AdvancedSecurityOptions = nil
 	}
+	if resp.DomainStatus.AutoTuneOptions != nil {
+		f4 := &svcapitypes.AutoTuneOptionsInput{}
+		ko.Spec.AutoTuneOptions = f4
+	} else {
+		ko.Spec.AutoTuneOptions = nil
+	}
 	if resp.DomainStatus.CognitoOptions != nil {
-		f4 := &svcapitypes.CognitoOptions{}
+		f5 := &svcapitypes.CognitoOptions{}
 		if resp.DomainStatus.CognitoOptions.Enabled != nil {
-			f4.Enabled = resp.DomainStatus.CognitoOptions.Enabled
+			f5.Enabled = resp.DomainStatus.CognitoOptions.Enabled
 		}
 		if resp.DomainStatus.CognitoOptions.IdentityPoolId != nil {
-			f4.IDentityPoolID = resp.DomainStatus.CognitoOptions.IdentityPoolId
+			f5.IdentityPoolID = resp.DomainStatus.CognitoOptions.IdentityPoolId
 		}
 		if resp.DomainStatus.CognitoOptions.RoleArn != nil {
-			f4.RoleARN = resp.DomainStatus.CognitoOptions.RoleArn
+			f5.RoleARN = resp.DomainStatus.CognitoOptions.RoleArn
 		}
 		if resp.DomainStatus.CognitoOptions.UserPoolId != nil {
-			f4.UserPoolID = resp.DomainStatus.CognitoOptions.UserPoolId
+			f5.UserPoolID = resp.DomainStatus.CognitoOptions.UserPoolId
 		}
-		ko.Spec.CognitoOptions = f4
+		ko.Spec.CognitoOptions = f5
 	} else {
 		ko.Spec.CognitoOptions = nil
 	}
@@ -161,23 +172,23 @@ func (rm *resourceManager) sdkFind(
 		ko.Status.Deleted = nil
 	}
 	if resp.DomainStatus.DomainEndpointOptions != nil {
-		f7 := &svcapitypes.DomainEndpointOptions{}
+		f8 := &svcapitypes.DomainEndpointOptions{}
 		if resp.DomainStatus.DomainEndpointOptions.CustomEndpoint != nil {
-			f7.CustomEndpoint = resp.DomainStatus.DomainEndpointOptions.CustomEndpoint
+			f8.CustomEndpoint = resp.DomainStatus.DomainEndpointOptions.CustomEndpoint
 		}
 		if resp.DomainStatus.DomainEndpointOptions.CustomEndpointCertificateArn != nil {
-			f7.CustomEndpointCertificateARN = resp.DomainStatus.DomainEndpointOptions.CustomEndpointCertificateArn
+			f8.CustomEndpointCertificateARN = resp.DomainStatus.DomainEndpointOptions.CustomEndpointCertificateArn
 		}
 		if resp.DomainStatus.DomainEndpointOptions.CustomEndpointEnabled != nil {
-			f7.CustomEndpointEnabled = resp.DomainStatus.DomainEndpointOptions.CustomEndpointEnabled
+			f8.CustomEndpointEnabled = resp.DomainStatus.DomainEndpointOptions.CustomEndpointEnabled
 		}
 		if resp.DomainStatus.DomainEndpointOptions.EnforceHTTPS != nil {
-			f7.EnforceHTTPS = resp.DomainStatus.DomainEndpointOptions.EnforceHTTPS
+			f8.EnforceHTTPS = resp.DomainStatus.DomainEndpointOptions.EnforceHTTPS
 		}
 		if resp.DomainStatus.DomainEndpointOptions.TLSSecurityPolicy != nil {
-			f7.TLSSecurityPolicy = resp.DomainStatus.DomainEndpointOptions.TLSSecurityPolicy
+			f8.TLSSecurityPolicy = resp.DomainStatus.DomainEndpointOptions.TLSSecurityPolicy
 		}
-		ko.Spec.DomainEndpointOptions = f7
+		ko.Spec.DomainEndpointOptions = f8
 	} else {
 		ko.Spec.DomainEndpointOptions = nil
 	}
@@ -192,60 +203,60 @@ func (rm *resourceManager) sdkFind(
 		ko.Spec.DomainName = nil
 	}
 	if resp.DomainStatus.EBSOptions != nil {
-		f10 := &svcapitypes.EBSOptions{}
+		f11 := &svcapitypes.EBSOptions{}
 		if resp.DomainStatus.EBSOptions.EBSEnabled != nil {
-			f10.EBSEnabled = resp.DomainStatus.EBSOptions.EBSEnabled
+			f11.EBSEnabled = resp.DomainStatus.EBSOptions.EBSEnabled
 		}
 		if resp.DomainStatus.EBSOptions.Iops != nil {
-			f10.IOPS = resp.DomainStatus.EBSOptions.Iops
+			f11.IOPS = resp.DomainStatus.EBSOptions.Iops
 		}
 		if resp.DomainStatus.EBSOptions.VolumeSize != nil {
-			f10.VolumeSize = resp.DomainStatus.EBSOptions.VolumeSize
+			f11.VolumeSize = resp.DomainStatus.EBSOptions.VolumeSize
 		}
 		if resp.DomainStatus.EBSOptions.VolumeType != nil {
-			f10.VolumeType = resp.DomainStatus.EBSOptions.VolumeType
+			f11.VolumeType = resp.DomainStatus.EBSOptions.VolumeType
 		}
-		ko.Spec.EBSOptions = f10
+		ko.Spec.EBSOptions = f11
 	} else {
 		ko.Spec.EBSOptions = nil
 	}
 	if resp.DomainStatus.ElasticsearchClusterConfig != nil {
-		f11 := &svcapitypes.ElasticsearchClusterConfig{}
+		f12 := &svcapitypes.ElasticsearchClusterConfig{}
 		if resp.DomainStatus.ElasticsearchClusterConfig.DedicatedMasterCount != nil {
-			f11.DedicatedMasterCount = resp.DomainStatus.ElasticsearchClusterConfig.DedicatedMasterCount
+			f12.DedicatedMasterCount = resp.DomainStatus.ElasticsearchClusterConfig.DedicatedMasterCount
 		}
 		if resp.DomainStatus.ElasticsearchClusterConfig.DedicatedMasterEnabled != nil {
-			f11.DedicatedMasterEnabled = resp.DomainStatus.ElasticsearchClusterConfig.DedicatedMasterEnabled
+			f12.DedicatedMasterEnabled = resp.DomainStatus.ElasticsearchClusterConfig.DedicatedMasterEnabled
 		}
 		if resp.DomainStatus.ElasticsearchClusterConfig.DedicatedMasterType != nil {
-			f11.DedicatedMasterType = resp.DomainStatus.ElasticsearchClusterConfig.DedicatedMasterType
+			f12.DedicatedMasterType = resp.DomainStatus.ElasticsearchClusterConfig.DedicatedMasterType
 		}
 		if resp.DomainStatus.ElasticsearchClusterConfig.InstanceCount != nil {
-			f11.InstanceCount = resp.DomainStatus.ElasticsearchClusterConfig.InstanceCount
+			f12.InstanceCount = resp.DomainStatus.ElasticsearchClusterConfig.InstanceCount
 		}
 		if resp.DomainStatus.ElasticsearchClusterConfig.InstanceType != nil {
-			f11.InstanceType = resp.DomainStatus.ElasticsearchClusterConfig.InstanceType
+			f12.InstanceType = resp.DomainStatus.ElasticsearchClusterConfig.InstanceType
 		}
 		if resp.DomainStatus.ElasticsearchClusterConfig.WarmCount != nil {
-			f11.WarmCount = resp.DomainStatus.ElasticsearchClusterConfig.WarmCount
+			f12.WarmCount = resp.DomainStatus.ElasticsearchClusterConfig.WarmCount
 		}
 		if resp.DomainStatus.ElasticsearchClusterConfig.WarmEnabled != nil {
-			f11.WarmEnabled = resp.DomainStatus.ElasticsearchClusterConfig.WarmEnabled
+			f12.WarmEnabled = resp.DomainStatus.ElasticsearchClusterConfig.WarmEnabled
 		}
 		if resp.DomainStatus.ElasticsearchClusterConfig.WarmType != nil {
-			f11.WarmType = resp.DomainStatus.ElasticsearchClusterConfig.WarmType
+			f12.WarmType = resp.DomainStatus.ElasticsearchClusterConfig.WarmType
 		}
 		if resp.DomainStatus.ElasticsearchClusterConfig.ZoneAwarenessConfig != nil {
-			f11f8 := &svcapitypes.ZoneAwarenessConfig{}
+			f12f8 := &svcapitypes.ZoneAwarenessConfig{}
 			if resp.DomainStatus.ElasticsearchClusterConfig.ZoneAwarenessConfig.AvailabilityZoneCount != nil {
-				f11f8.AvailabilityZoneCount = resp.DomainStatus.ElasticsearchClusterConfig.ZoneAwarenessConfig.AvailabilityZoneCount
+				f12f8.AvailabilityZoneCount = resp.DomainStatus.ElasticsearchClusterConfig.ZoneAwarenessConfig.AvailabilityZoneCount
 			}
-			f11.ZoneAwarenessConfig = f11f8
+			f12.ZoneAwarenessConfig = f12f8
 		}
 		if resp.DomainStatus.ElasticsearchClusterConfig.ZoneAwarenessEnabled != nil {
-			f11.ZoneAwarenessEnabled = resp.DomainStatus.ElasticsearchClusterConfig.ZoneAwarenessEnabled
+			f12.ZoneAwarenessEnabled = resp.DomainStatus.ElasticsearchClusterConfig.ZoneAwarenessEnabled
 		}
-		ko.Spec.ElasticsearchClusterConfig = f11
+		ko.Spec.ElasticsearchClusterConfig = f12
 	} else {
 		ko.Spec.ElasticsearchClusterConfig = nil
 	}
@@ -255,14 +266,14 @@ func (rm *resourceManager) sdkFind(
 		ko.Spec.ElasticsearchVersion = nil
 	}
 	if resp.DomainStatus.EncryptionAtRestOptions != nil {
-		f13 := &svcapitypes.EncryptionAtRestOptions{}
+		f14 := &svcapitypes.EncryptionAtRestOptions{}
 		if resp.DomainStatus.EncryptionAtRestOptions.Enabled != nil {
-			f13.Enabled = resp.DomainStatus.EncryptionAtRestOptions.Enabled
+			f14.Enabled = resp.DomainStatus.EncryptionAtRestOptions.Enabled
 		}
 		if resp.DomainStatus.EncryptionAtRestOptions.KmsKeyId != nil {
-			f13.KMSKeyID = resp.DomainStatus.EncryptionAtRestOptions.KmsKeyId
+			f14.KMSKeyID = resp.DomainStatus.EncryptionAtRestOptions.KmsKeyId
 		}
-		ko.Spec.EncryptionAtRestOptions = f13
+		ko.Spec.EncryptionAtRestOptions = f14
 	} else {
 		ko.Spec.EncryptionAtRestOptions = nil
 	}
@@ -272,38 +283,38 @@ func (rm *resourceManager) sdkFind(
 		ko.Status.Endpoint = nil
 	}
 	if resp.DomainStatus.Endpoints != nil {
-		f15 := map[string]*string{}
-		for f15key, f15valiter := range resp.DomainStatus.Endpoints {
-			var f15val string
-			f15val = *f15valiter
-			f15[f15key] = &f15val
+		f16 := map[string]*string{}
+		for f16key, f16valiter := range resp.DomainStatus.Endpoints {
+			var f16val string
+			f16val = *f16valiter
+			f16[f16key] = &f16val
 		}
-		ko.Status.Endpoints = f15
+		ko.Status.Endpoints = f16
 	} else {
 		ko.Status.Endpoints = nil
 	}
 	if resp.DomainStatus.LogPublishingOptions != nil {
-		f16 := map[string]*svcapitypes.LogPublishingOption{}
-		for f16key, f16valiter := range resp.DomainStatus.LogPublishingOptions {
-			f16val := &svcapitypes.LogPublishingOption{}
-			if f16valiter.CloudWatchLogsLogGroupArn != nil {
-				f16val.CloudWatchLogsLogGroupARN = f16valiter.CloudWatchLogsLogGroupArn
+		f17 := map[string]*svcapitypes.LogPublishingOption{}
+		for f17key, f17valiter := range resp.DomainStatus.LogPublishingOptions {
+			f17val := &svcapitypes.LogPublishingOption{}
+			if f17valiter.CloudWatchLogsLogGroupArn != nil {
+				f17val.CloudWatchLogsLogGroupARN = f17valiter.CloudWatchLogsLogGroupArn
 			}
-			if f16valiter.Enabled != nil {
-				f16val.Enabled = f16valiter.Enabled
+			if f17valiter.Enabled != nil {
+				f17val.Enabled = f17valiter.Enabled
 			}
-			f16[f16key] = f16val
+			f17[f17key] = f17val
 		}
-		ko.Spec.LogPublishingOptions = f16
+		ko.Spec.LogPublishingOptions = f17
 	} else {
 		ko.Spec.LogPublishingOptions = nil
 	}
 	if resp.DomainStatus.NodeToNodeEncryptionOptions != nil {
-		f17 := &svcapitypes.NodeToNodeEncryptionOptions{}
+		f18 := &svcapitypes.NodeToNodeEncryptionOptions{}
 		if resp.DomainStatus.NodeToNodeEncryptionOptions.Enabled != nil {
-			f17.Enabled = resp.DomainStatus.NodeToNodeEncryptionOptions.Enabled
+			f18.Enabled = resp.DomainStatus.NodeToNodeEncryptionOptions.Enabled
 		}
-		ko.Spec.NodeToNodeEncryptionOptions = f17
+		ko.Spec.NodeToNodeEncryptionOptions = f18
 	} else {
 		ko.Spec.NodeToNodeEncryptionOptions = nil
 	}
@@ -313,41 +324,41 @@ func (rm *resourceManager) sdkFind(
 		ko.Status.Processing = nil
 	}
 	if resp.DomainStatus.ServiceSoftwareOptions != nil {
-		f19 := &svcapitypes.ServiceSoftwareOptions{}
+		f20 := &svcapitypes.ServiceSoftwareOptions{}
 		if resp.DomainStatus.ServiceSoftwareOptions.AutomatedUpdateDate != nil {
-			f19.AutomatedUpdateDate = &metav1.Time{*resp.DomainStatus.ServiceSoftwareOptions.AutomatedUpdateDate}
+			f20.AutomatedUpdateDate = &metav1.Time{*resp.DomainStatus.ServiceSoftwareOptions.AutomatedUpdateDate}
 		}
 		if resp.DomainStatus.ServiceSoftwareOptions.Cancellable != nil {
-			f19.Cancellable = resp.DomainStatus.ServiceSoftwareOptions.Cancellable
+			f20.Cancellable = resp.DomainStatus.ServiceSoftwareOptions.Cancellable
 		}
 		if resp.DomainStatus.ServiceSoftwareOptions.CurrentVersion != nil {
-			f19.CurrentVersion = resp.DomainStatus.ServiceSoftwareOptions.CurrentVersion
+			f20.CurrentVersion = resp.DomainStatus.ServiceSoftwareOptions.CurrentVersion
 		}
 		if resp.DomainStatus.ServiceSoftwareOptions.Description != nil {
-			f19.Description = resp.DomainStatus.ServiceSoftwareOptions.Description
+			f20.Description = resp.DomainStatus.ServiceSoftwareOptions.Description
 		}
 		if resp.DomainStatus.ServiceSoftwareOptions.NewVersion != nil {
-			f19.NewVersion = resp.DomainStatus.ServiceSoftwareOptions.NewVersion
+			f20.NewVersion = resp.DomainStatus.ServiceSoftwareOptions.NewVersion
 		}
 		if resp.DomainStatus.ServiceSoftwareOptions.OptionalDeployment != nil {
-			f19.OptionalDeployment = resp.DomainStatus.ServiceSoftwareOptions.OptionalDeployment
+			f20.OptionalDeployment = resp.DomainStatus.ServiceSoftwareOptions.OptionalDeployment
 		}
 		if resp.DomainStatus.ServiceSoftwareOptions.UpdateAvailable != nil {
-			f19.UpdateAvailable = resp.DomainStatus.ServiceSoftwareOptions.UpdateAvailable
+			f20.UpdateAvailable = resp.DomainStatus.ServiceSoftwareOptions.UpdateAvailable
 		}
 		if resp.DomainStatus.ServiceSoftwareOptions.UpdateStatus != nil {
-			f19.UpdateStatus = resp.DomainStatus.ServiceSoftwareOptions.UpdateStatus
+			f20.UpdateStatus = resp.DomainStatus.ServiceSoftwareOptions.UpdateStatus
 		}
-		ko.Status.ServiceSoftwareOptions = f19
+		ko.Status.ServiceSoftwareOptions = f20
 	} else {
 		ko.Status.ServiceSoftwareOptions = nil
 	}
 	if resp.DomainStatus.SnapshotOptions != nil {
-		f20 := &svcapitypes.SnapshotOptions{}
+		f21 := &svcapitypes.SnapshotOptions{}
 		if resp.DomainStatus.SnapshotOptions.AutomatedSnapshotStartHour != nil {
-			f20.AutomatedSnapshotStartHour = resp.DomainStatus.SnapshotOptions.AutomatedSnapshotStartHour
+			f21.AutomatedSnapshotStartHour = resp.DomainStatus.SnapshotOptions.AutomatedSnapshotStartHour
 		}
-		ko.Spec.SnapshotOptions = f20
+		ko.Spec.SnapshotOptions = f21
 	} else {
 		ko.Spec.SnapshotOptions = nil
 	}
@@ -357,37 +368,36 @@ func (rm *resourceManager) sdkFind(
 		ko.Status.UpgradeProcessing = nil
 	}
 	if resp.DomainStatus.VPCOptions != nil {
-		f22 := &svcapitypes.VPCOptions{}
+		f23 := &svcapitypes.VPCOptions{}
 		if resp.DomainStatus.VPCOptions.SecurityGroupIds != nil {
-			f22f1 := []*string{}
-			for _, f22f1iter := range resp.DomainStatus.VPCOptions.SecurityGroupIds {
-				var f22f1elem string
-				f22f1elem = *f22f1iter
-				f22f1 = append(f22f1, &f22f1elem)
+			f23f1 := []*string{}
+			for _, f23f1iter := range resp.DomainStatus.VPCOptions.SecurityGroupIds {
+				var f23f1elem string
+				f23f1elem = *f23f1iter
+				f23f1 = append(f23f1, &f23f1elem)
 			}
-			f22.SecurityGroupIDs = f22f1
+			f23.SecurityGroupIDs = f23f1
 		}
 		if resp.DomainStatus.VPCOptions.SubnetIds != nil {
-			f22f2 := []*string{}
-			for _, f22f2iter := range resp.DomainStatus.VPCOptions.SubnetIds {
-				var f22f2elem string
-				f22f2elem = *f22f2iter
-				f22f2 = append(f22f2, &f22f2elem)
+			f23f2 := []*string{}
+			for _, f23f2iter := range resp.DomainStatus.VPCOptions.SubnetIds {
+				var f23f2elem string
+				f23f2elem = *f23f2iter
+				f23f2 = append(f23f2, &f23f2elem)
 			}
-			f22.SubnetIDs = f22f2
+			f23.SubnetIDs = f23f2
 		}
-		ko.Spec.VPCOptions = f22
+		ko.Spec.VPCOptions = f23
 	} else {
 		ko.Spec.VPCOptions = nil
 	}
 
 	rm.setStatusDefaults(ko)
-
 	return &resource{ko}, nil
 }
 
 // requiredFieldsMissingFromReadOneInput returns true if there are any fields
-// for the ReadOne Input shape that are required by not present in the
+// for the ReadOne Input shape that are required but not present in the
 // resource's Spec or Status
 func (rm *resourceManager) requiredFieldsMissingFromReadOneInput(
 	r *resource,
@@ -411,24 +421,30 @@ func (rm *resourceManager) newDescribeRequestPayload(
 }
 
 // sdkCreate creates the supplied resource in the backend AWS service API and
-// returns a new resource with any fields in the Status field filled in
+// returns a copy of the resource with resource fields (in both Spec and
+// Status) filled in with values from the CREATE API operation's Output shape.
 func (rm *resourceManager) sdkCreate(
 	ctx context.Context,
-	r *resource,
-) (*resource, error) {
-	input, err := rm.newCreateRequestPayload(ctx, r)
+	desired *resource,
+) (created *resource, err error) {
+	rlog := ackrtlog.FromContext(ctx)
+	exit := rlog.Trace("rm.sdkCreate")
+	defer exit(err)
+	input, err := rm.newCreateRequestPayload(ctx, desired)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, respErr := rm.sdkapi.CreateElasticsearchDomainWithContext(ctx, input)
-	rm.metrics.RecordAPICall("CREATE", "CreateElasticsearchDomain", respErr)
-	if respErr != nil {
-		return nil, respErr
+	var resp *svcsdk.CreateElasticsearchDomainOutput
+	_ = resp
+	resp, err = rm.sdkapi.CreateElasticsearchDomainWithContext(ctx, input)
+	rm.metrics.RecordAPICall("CREATE", "CreateElasticsearchDomain", err)
+	if err != nil {
+		return nil, err
 	}
 	// Merge in the information we read from the API call above to the copy of
 	// the original Kubernetes object we passed to the function
-	ko := r.ko.DeepCopy()
+	ko := desired.ko.DeepCopy()
 
 	if ko.Status.ACKResourceMetadata == nil {
 		ko.Status.ACKResourceMetadata = &ackv1alpha1.ResourceMetadata{}
@@ -436,6 +452,84 @@ func (rm *resourceManager) sdkCreate(
 	if resp.DomainStatus.ARN != nil {
 		arn := ackv1alpha1.AWSResourceName(*resp.DomainStatus.ARN)
 		ko.Status.ACKResourceMetadata.ARN = &arn
+	}
+	if resp.DomainStatus.AccessPolicies != nil {
+		ko.Spec.AccessPolicies = resp.DomainStatus.AccessPolicies
+	} else {
+		ko.Spec.AccessPolicies = nil
+	}
+	if resp.DomainStatus.AdvancedOptions != nil {
+		f2 := map[string]*string{}
+		for f2key, f2valiter := range resp.DomainStatus.AdvancedOptions {
+			var f2val string
+			f2val = *f2valiter
+			f2[f2key] = &f2val
+		}
+		ko.Spec.AdvancedOptions = f2
+	} else {
+		ko.Spec.AdvancedOptions = nil
+	}
+	if resp.DomainStatus.AdvancedSecurityOptions != nil {
+		f3 := &svcapitypes.AdvancedSecurityOptionsInput{}
+		if resp.DomainStatus.AdvancedSecurityOptions.Enabled != nil {
+			f3.Enabled = resp.DomainStatus.AdvancedSecurityOptions.Enabled
+		}
+		if resp.DomainStatus.AdvancedSecurityOptions.InternalUserDatabaseEnabled != nil {
+			f3.InternalUserDatabaseEnabled = resp.DomainStatus.AdvancedSecurityOptions.InternalUserDatabaseEnabled
+		}
+		if resp.DomainStatus.AdvancedSecurityOptions.SAMLOptions != nil {
+			f3f2 := &svcapitypes.SAMLOptionsInput{}
+			if resp.DomainStatus.AdvancedSecurityOptions.SAMLOptions.Enabled != nil {
+				f3f2.Enabled = resp.DomainStatus.AdvancedSecurityOptions.SAMLOptions.Enabled
+			}
+			if resp.DomainStatus.AdvancedSecurityOptions.SAMLOptions.Idp != nil {
+				f3f2f1 := &svcapitypes.SAMLIDp{}
+				if resp.DomainStatus.AdvancedSecurityOptions.SAMLOptions.Idp.EntityId != nil {
+					f3f2f1.EntityID = resp.DomainStatus.AdvancedSecurityOptions.SAMLOptions.Idp.EntityId
+				}
+				if resp.DomainStatus.AdvancedSecurityOptions.SAMLOptions.Idp.MetadataContent != nil {
+					f3f2f1.MetadataContent = resp.DomainStatus.AdvancedSecurityOptions.SAMLOptions.Idp.MetadataContent
+				}
+				f3f2.IDp = f3f2f1
+			}
+			if resp.DomainStatus.AdvancedSecurityOptions.SAMLOptions.RolesKey != nil {
+				f3f2.RolesKey = resp.DomainStatus.AdvancedSecurityOptions.SAMLOptions.RolesKey
+			}
+			if resp.DomainStatus.AdvancedSecurityOptions.SAMLOptions.SessionTimeoutMinutes != nil {
+				f3f2.SessionTimeoutMinutes = resp.DomainStatus.AdvancedSecurityOptions.SAMLOptions.SessionTimeoutMinutes
+			}
+			if resp.DomainStatus.AdvancedSecurityOptions.SAMLOptions.SubjectKey != nil {
+				f3f2.SubjectKey = resp.DomainStatus.AdvancedSecurityOptions.SAMLOptions.SubjectKey
+			}
+			f3.SAMLOptions = f3f2
+		}
+		ko.Spec.AdvancedSecurityOptions = f3
+	} else {
+		ko.Spec.AdvancedSecurityOptions = nil
+	}
+	if resp.DomainStatus.AutoTuneOptions != nil {
+		f4 := &svcapitypes.AutoTuneOptionsInput{}
+		ko.Spec.AutoTuneOptions = f4
+	} else {
+		ko.Spec.AutoTuneOptions = nil
+	}
+	if resp.DomainStatus.CognitoOptions != nil {
+		f5 := &svcapitypes.CognitoOptions{}
+		if resp.DomainStatus.CognitoOptions.Enabled != nil {
+			f5.Enabled = resp.DomainStatus.CognitoOptions.Enabled
+		}
+		if resp.DomainStatus.CognitoOptions.IdentityPoolId != nil {
+			f5.IdentityPoolID = resp.DomainStatus.CognitoOptions.IdentityPoolId
+		}
+		if resp.DomainStatus.CognitoOptions.RoleArn != nil {
+			f5.RoleARN = resp.DomainStatus.CognitoOptions.RoleArn
+		}
+		if resp.DomainStatus.CognitoOptions.UserPoolId != nil {
+			f5.UserPoolID = resp.DomainStatus.CognitoOptions.UserPoolId
+		}
+		ko.Spec.CognitoOptions = f5
+	} else {
+		ko.Spec.CognitoOptions = nil
 	}
 	if resp.DomainStatus.Created != nil {
 		ko.Status.Created = resp.DomainStatus.Created
@@ -447,10 +541,111 @@ func (rm *resourceManager) sdkCreate(
 	} else {
 		ko.Status.Deleted = nil
 	}
+	if resp.DomainStatus.DomainEndpointOptions != nil {
+		f8 := &svcapitypes.DomainEndpointOptions{}
+		if resp.DomainStatus.DomainEndpointOptions.CustomEndpoint != nil {
+			f8.CustomEndpoint = resp.DomainStatus.DomainEndpointOptions.CustomEndpoint
+		}
+		if resp.DomainStatus.DomainEndpointOptions.CustomEndpointCertificateArn != nil {
+			f8.CustomEndpointCertificateARN = resp.DomainStatus.DomainEndpointOptions.CustomEndpointCertificateArn
+		}
+		if resp.DomainStatus.DomainEndpointOptions.CustomEndpointEnabled != nil {
+			f8.CustomEndpointEnabled = resp.DomainStatus.DomainEndpointOptions.CustomEndpointEnabled
+		}
+		if resp.DomainStatus.DomainEndpointOptions.EnforceHTTPS != nil {
+			f8.EnforceHTTPS = resp.DomainStatus.DomainEndpointOptions.EnforceHTTPS
+		}
+		if resp.DomainStatus.DomainEndpointOptions.TLSSecurityPolicy != nil {
+			f8.TLSSecurityPolicy = resp.DomainStatus.DomainEndpointOptions.TLSSecurityPolicy
+		}
+		ko.Spec.DomainEndpointOptions = f8
+	} else {
+		ko.Spec.DomainEndpointOptions = nil
+	}
 	if resp.DomainStatus.DomainId != nil {
 		ko.Status.DomainID = resp.DomainStatus.DomainId
 	} else {
 		ko.Status.DomainID = nil
+	}
+	if resp.DomainStatus.DomainName != nil {
+		ko.Spec.DomainName = resp.DomainStatus.DomainName
+	} else {
+		ko.Spec.DomainName = nil
+	}
+	if resp.DomainStatus.EBSOptions != nil {
+		f11 := &svcapitypes.EBSOptions{}
+		if resp.DomainStatus.EBSOptions.EBSEnabled != nil {
+			f11.EBSEnabled = resp.DomainStatus.EBSOptions.EBSEnabled
+		}
+		if resp.DomainStatus.EBSOptions.Iops != nil {
+			f11.IOPS = resp.DomainStatus.EBSOptions.Iops
+		}
+		if resp.DomainStatus.EBSOptions.VolumeSize != nil {
+			f11.VolumeSize = resp.DomainStatus.EBSOptions.VolumeSize
+		}
+		if resp.DomainStatus.EBSOptions.VolumeType != nil {
+			f11.VolumeType = resp.DomainStatus.EBSOptions.VolumeType
+		}
+		ko.Spec.EBSOptions = f11
+	} else {
+		ko.Spec.EBSOptions = nil
+	}
+	if resp.DomainStatus.ElasticsearchClusterConfig != nil {
+		f12 := &svcapitypes.ElasticsearchClusterConfig{}
+		if resp.DomainStatus.ElasticsearchClusterConfig.DedicatedMasterCount != nil {
+			f12.DedicatedMasterCount = resp.DomainStatus.ElasticsearchClusterConfig.DedicatedMasterCount
+		}
+		if resp.DomainStatus.ElasticsearchClusterConfig.DedicatedMasterEnabled != nil {
+			f12.DedicatedMasterEnabled = resp.DomainStatus.ElasticsearchClusterConfig.DedicatedMasterEnabled
+		}
+		if resp.DomainStatus.ElasticsearchClusterConfig.DedicatedMasterType != nil {
+			f12.DedicatedMasterType = resp.DomainStatus.ElasticsearchClusterConfig.DedicatedMasterType
+		}
+		if resp.DomainStatus.ElasticsearchClusterConfig.InstanceCount != nil {
+			f12.InstanceCount = resp.DomainStatus.ElasticsearchClusterConfig.InstanceCount
+		}
+		if resp.DomainStatus.ElasticsearchClusterConfig.InstanceType != nil {
+			f12.InstanceType = resp.DomainStatus.ElasticsearchClusterConfig.InstanceType
+		}
+		if resp.DomainStatus.ElasticsearchClusterConfig.WarmCount != nil {
+			f12.WarmCount = resp.DomainStatus.ElasticsearchClusterConfig.WarmCount
+		}
+		if resp.DomainStatus.ElasticsearchClusterConfig.WarmEnabled != nil {
+			f12.WarmEnabled = resp.DomainStatus.ElasticsearchClusterConfig.WarmEnabled
+		}
+		if resp.DomainStatus.ElasticsearchClusterConfig.WarmType != nil {
+			f12.WarmType = resp.DomainStatus.ElasticsearchClusterConfig.WarmType
+		}
+		if resp.DomainStatus.ElasticsearchClusterConfig.ZoneAwarenessConfig != nil {
+			f12f8 := &svcapitypes.ZoneAwarenessConfig{}
+			if resp.DomainStatus.ElasticsearchClusterConfig.ZoneAwarenessConfig.AvailabilityZoneCount != nil {
+				f12f8.AvailabilityZoneCount = resp.DomainStatus.ElasticsearchClusterConfig.ZoneAwarenessConfig.AvailabilityZoneCount
+			}
+			f12.ZoneAwarenessConfig = f12f8
+		}
+		if resp.DomainStatus.ElasticsearchClusterConfig.ZoneAwarenessEnabled != nil {
+			f12.ZoneAwarenessEnabled = resp.DomainStatus.ElasticsearchClusterConfig.ZoneAwarenessEnabled
+		}
+		ko.Spec.ElasticsearchClusterConfig = f12
+	} else {
+		ko.Spec.ElasticsearchClusterConfig = nil
+	}
+	if resp.DomainStatus.ElasticsearchVersion != nil {
+		ko.Spec.ElasticsearchVersion = resp.DomainStatus.ElasticsearchVersion
+	} else {
+		ko.Spec.ElasticsearchVersion = nil
+	}
+	if resp.DomainStatus.EncryptionAtRestOptions != nil {
+		f14 := &svcapitypes.EncryptionAtRestOptions{}
+		if resp.DomainStatus.EncryptionAtRestOptions.Enabled != nil {
+			f14.Enabled = resp.DomainStatus.EncryptionAtRestOptions.Enabled
+		}
+		if resp.DomainStatus.EncryptionAtRestOptions.KmsKeyId != nil {
+			f14.KMSKeyID = resp.DomainStatus.EncryptionAtRestOptions.KmsKeyId
+		}
+		ko.Spec.EncryptionAtRestOptions = f14
+	} else {
+		ko.Spec.EncryptionAtRestOptions = nil
 	}
 	if resp.DomainStatus.Endpoint != nil {
 		ko.Status.Endpoint = resp.DomainStatus.Endpoint
@@ -458,15 +653,40 @@ func (rm *resourceManager) sdkCreate(
 		ko.Status.Endpoint = nil
 	}
 	if resp.DomainStatus.Endpoints != nil {
-		f15 := map[string]*string{}
-		for f15key, f15valiter := range resp.DomainStatus.Endpoints {
-			var f15val string
-			f15val = *f15valiter
-			f15[f15key] = &f15val
+		f16 := map[string]*string{}
+		for f16key, f16valiter := range resp.DomainStatus.Endpoints {
+			var f16val string
+			f16val = *f16valiter
+			f16[f16key] = &f16val
 		}
-		ko.Status.Endpoints = f15
+		ko.Status.Endpoints = f16
 	} else {
 		ko.Status.Endpoints = nil
+	}
+	if resp.DomainStatus.LogPublishingOptions != nil {
+		f17 := map[string]*svcapitypes.LogPublishingOption{}
+		for f17key, f17valiter := range resp.DomainStatus.LogPublishingOptions {
+			f17val := &svcapitypes.LogPublishingOption{}
+			if f17valiter.CloudWatchLogsLogGroupArn != nil {
+				f17val.CloudWatchLogsLogGroupARN = f17valiter.CloudWatchLogsLogGroupArn
+			}
+			if f17valiter.Enabled != nil {
+				f17val.Enabled = f17valiter.Enabled
+			}
+			f17[f17key] = f17val
+		}
+		ko.Spec.LogPublishingOptions = f17
+	} else {
+		ko.Spec.LogPublishingOptions = nil
+	}
+	if resp.DomainStatus.NodeToNodeEncryptionOptions != nil {
+		f18 := &svcapitypes.NodeToNodeEncryptionOptions{}
+		if resp.DomainStatus.NodeToNodeEncryptionOptions.Enabled != nil {
+			f18.Enabled = resp.DomainStatus.NodeToNodeEncryptionOptions.Enabled
+		}
+		ko.Spec.NodeToNodeEncryptionOptions = f18
+	} else {
+		ko.Spec.NodeToNodeEncryptionOptions = nil
 	}
 	if resp.DomainStatus.Processing != nil {
 		ko.Status.Processing = resp.DomainStatus.Processing
@@ -474,43 +694,75 @@ func (rm *resourceManager) sdkCreate(
 		ko.Status.Processing = nil
 	}
 	if resp.DomainStatus.ServiceSoftwareOptions != nil {
-		f19 := &svcapitypes.ServiceSoftwareOptions{}
+		f20 := &svcapitypes.ServiceSoftwareOptions{}
 		if resp.DomainStatus.ServiceSoftwareOptions.AutomatedUpdateDate != nil {
-			f19.AutomatedUpdateDate = &metav1.Time{*resp.DomainStatus.ServiceSoftwareOptions.AutomatedUpdateDate}
+			f20.AutomatedUpdateDate = &metav1.Time{*resp.DomainStatus.ServiceSoftwareOptions.AutomatedUpdateDate}
 		}
 		if resp.DomainStatus.ServiceSoftwareOptions.Cancellable != nil {
-			f19.Cancellable = resp.DomainStatus.ServiceSoftwareOptions.Cancellable
+			f20.Cancellable = resp.DomainStatus.ServiceSoftwareOptions.Cancellable
 		}
 		if resp.DomainStatus.ServiceSoftwareOptions.CurrentVersion != nil {
-			f19.CurrentVersion = resp.DomainStatus.ServiceSoftwareOptions.CurrentVersion
+			f20.CurrentVersion = resp.DomainStatus.ServiceSoftwareOptions.CurrentVersion
 		}
 		if resp.DomainStatus.ServiceSoftwareOptions.Description != nil {
-			f19.Description = resp.DomainStatus.ServiceSoftwareOptions.Description
+			f20.Description = resp.DomainStatus.ServiceSoftwareOptions.Description
 		}
 		if resp.DomainStatus.ServiceSoftwareOptions.NewVersion != nil {
-			f19.NewVersion = resp.DomainStatus.ServiceSoftwareOptions.NewVersion
+			f20.NewVersion = resp.DomainStatus.ServiceSoftwareOptions.NewVersion
 		}
 		if resp.DomainStatus.ServiceSoftwareOptions.OptionalDeployment != nil {
-			f19.OptionalDeployment = resp.DomainStatus.ServiceSoftwareOptions.OptionalDeployment
+			f20.OptionalDeployment = resp.DomainStatus.ServiceSoftwareOptions.OptionalDeployment
 		}
 		if resp.DomainStatus.ServiceSoftwareOptions.UpdateAvailable != nil {
-			f19.UpdateAvailable = resp.DomainStatus.ServiceSoftwareOptions.UpdateAvailable
+			f20.UpdateAvailable = resp.DomainStatus.ServiceSoftwareOptions.UpdateAvailable
 		}
 		if resp.DomainStatus.ServiceSoftwareOptions.UpdateStatus != nil {
-			f19.UpdateStatus = resp.DomainStatus.ServiceSoftwareOptions.UpdateStatus
+			f20.UpdateStatus = resp.DomainStatus.ServiceSoftwareOptions.UpdateStatus
 		}
-		ko.Status.ServiceSoftwareOptions = f19
+		ko.Status.ServiceSoftwareOptions = f20
 	} else {
 		ko.Status.ServiceSoftwareOptions = nil
+	}
+	if resp.DomainStatus.SnapshotOptions != nil {
+		f21 := &svcapitypes.SnapshotOptions{}
+		if resp.DomainStatus.SnapshotOptions.AutomatedSnapshotStartHour != nil {
+			f21.AutomatedSnapshotStartHour = resp.DomainStatus.SnapshotOptions.AutomatedSnapshotStartHour
+		}
+		ko.Spec.SnapshotOptions = f21
+	} else {
+		ko.Spec.SnapshotOptions = nil
 	}
 	if resp.DomainStatus.UpgradeProcessing != nil {
 		ko.Status.UpgradeProcessing = resp.DomainStatus.UpgradeProcessing
 	} else {
 		ko.Status.UpgradeProcessing = nil
 	}
+	if resp.DomainStatus.VPCOptions != nil {
+		f23 := &svcapitypes.VPCOptions{}
+		if resp.DomainStatus.VPCOptions.SecurityGroupIds != nil {
+			f23f1 := []*string{}
+			for _, f23f1iter := range resp.DomainStatus.VPCOptions.SecurityGroupIds {
+				var f23f1elem string
+				f23f1elem = *f23f1iter
+				f23f1 = append(f23f1, &f23f1elem)
+			}
+			f23.SecurityGroupIDs = f23f1
+		}
+		if resp.DomainStatus.VPCOptions.SubnetIds != nil {
+			f23f2 := []*string{}
+			for _, f23f2iter := range resp.DomainStatus.VPCOptions.SubnetIds {
+				var f23f2elem string
+				f23f2elem = *f23f2iter
+				f23f2 = append(f23f2, &f23f2elem)
+			}
+			f23.SubnetIDs = f23f2
+		}
+		ko.Spec.VPCOptions = f23
+	} else {
+		ko.Spec.VPCOptions = nil
+	}
 
 	rm.setStatusDefaults(ko)
-
 	return &resource{ko}, nil
 }
 
@@ -589,160 +841,205 @@ func (rm *resourceManager) newCreateRequestPayload(
 		}
 		res.SetAdvancedSecurityOptions(f2)
 	}
-	if r.ko.Spec.CognitoOptions != nil {
-		f3 := &svcsdk.CognitoOptions{}
-		if r.ko.Spec.CognitoOptions.Enabled != nil {
-			f3.SetEnabled(*r.ko.Spec.CognitoOptions.Enabled)
+	if r.ko.Spec.AutoTuneOptions != nil {
+		f3 := &svcsdk.AutoTuneOptionsInput{}
+		if r.ko.Spec.AutoTuneOptions.DesiredState != nil {
+			f3.SetDesiredState(*r.ko.Spec.AutoTuneOptions.DesiredState)
 		}
-		if r.ko.Spec.CognitoOptions.IDentityPoolID != nil {
-			f3.SetIdentityPoolId(*r.ko.Spec.CognitoOptions.IDentityPoolID)
+		if r.ko.Spec.AutoTuneOptions.MaintenanceSchedules != nil {
+			f3f1 := []*svcsdk.AutoTuneMaintenanceSchedule{}
+			for _, f3f1iter := range r.ko.Spec.AutoTuneOptions.MaintenanceSchedules {
+				f3f1elem := &svcsdk.AutoTuneMaintenanceSchedule{}
+				if f3f1iter.CronExpressionForRecurrence != nil {
+					f3f1elem.SetCronExpressionForRecurrence(*f3f1iter.CronExpressionForRecurrence)
+				}
+				if f3f1iter.Duration != nil {
+					f3f1elemf1 := &svcsdk.Duration{}
+					if f3f1iter.Duration.Unit != nil {
+						f3f1elemf1.SetUnit(*f3f1iter.Duration.Unit)
+					}
+					if f3f1iter.Duration.Value != nil {
+						f3f1elemf1.SetValue(*f3f1iter.Duration.Value)
+					}
+					f3f1elem.SetDuration(f3f1elemf1)
+				}
+				if f3f1iter.StartAt != nil {
+					f3f1elem.SetStartAt(f3f1iter.StartAt.Time)
+				}
+				f3f1 = append(f3f1, f3f1elem)
+			}
+			f3.SetMaintenanceSchedules(f3f1)
+		}
+		res.SetAutoTuneOptions(f3)
+	}
+	if r.ko.Spec.CognitoOptions != nil {
+		f4 := &svcsdk.CognitoOptions{}
+		if r.ko.Spec.CognitoOptions.Enabled != nil {
+			f4.SetEnabled(*r.ko.Spec.CognitoOptions.Enabled)
+		}
+		if r.ko.Spec.CognitoOptions.IdentityPoolID != nil {
+			f4.SetIdentityPoolId(*r.ko.Spec.CognitoOptions.IdentityPoolID)
 		}
 		if r.ko.Spec.CognitoOptions.RoleARN != nil {
-			f3.SetRoleArn(*r.ko.Spec.CognitoOptions.RoleARN)
+			f4.SetRoleArn(*r.ko.Spec.CognitoOptions.RoleARN)
 		}
 		if r.ko.Spec.CognitoOptions.UserPoolID != nil {
-			f3.SetUserPoolId(*r.ko.Spec.CognitoOptions.UserPoolID)
+			f4.SetUserPoolId(*r.ko.Spec.CognitoOptions.UserPoolID)
 		}
-		res.SetCognitoOptions(f3)
+		res.SetCognitoOptions(f4)
 	}
 	if r.ko.Spec.DomainEndpointOptions != nil {
-		f4 := &svcsdk.DomainEndpointOptions{}
+		f5 := &svcsdk.DomainEndpointOptions{}
 		if r.ko.Spec.DomainEndpointOptions.CustomEndpoint != nil {
-			f4.SetCustomEndpoint(*r.ko.Spec.DomainEndpointOptions.CustomEndpoint)
+			f5.SetCustomEndpoint(*r.ko.Spec.DomainEndpointOptions.CustomEndpoint)
 		}
 		if r.ko.Spec.DomainEndpointOptions.CustomEndpointCertificateARN != nil {
-			f4.SetCustomEndpointCertificateArn(*r.ko.Spec.DomainEndpointOptions.CustomEndpointCertificateARN)
+			f5.SetCustomEndpointCertificateArn(*r.ko.Spec.DomainEndpointOptions.CustomEndpointCertificateARN)
 		}
 		if r.ko.Spec.DomainEndpointOptions.CustomEndpointEnabled != nil {
-			f4.SetCustomEndpointEnabled(*r.ko.Spec.DomainEndpointOptions.CustomEndpointEnabled)
+			f5.SetCustomEndpointEnabled(*r.ko.Spec.DomainEndpointOptions.CustomEndpointEnabled)
 		}
 		if r.ko.Spec.DomainEndpointOptions.EnforceHTTPS != nil {
-			f4.SetEnforceHTTPS(*r.ko.Spec.DomainEndpointOptions.EnforceHTTPS)
+			f5.SetEnforceHTTPS(*r.ko.Spec.DomainEndpointOptions.EnforceHTTPS)
 		}
 		if r.ko.Spec.DomainEndpointOptions.TLSSecurityPolicy != nil {
-			f4.SetTLSSecurityPolicy(*r.ko.Spec.DomainEndpointOptions.TLSSecurityPolicy)
+			f5.SetTLSSecurityPolicy(*r.ko.Spec.DomainEndpointOptions.TLSSecurityPolicy)
 		}
-		res.SetDomainEndpointOptions(f4)
+		res.SetDomainEndpointOptions(f5)
 	}
 	if r.ko.Spec.DomainName != nil {
 		res.SetDomainName(*r.ko.Spec.DomainName)
 	}
 	if r.ko.Spec.EBSOptions != nil {
-		f6 := &svcsdk.EBSOptions{}
+		f7 := &svcsdk.EBSOptions{}
 		if r.ko.Spec.EBSOptions.EBSEnabled != nil {
-			f6.SetEBSEnabled(*r.ko.Spec.EBSOptions.EBSEnabled)
+			f7.SetEBSEnabled(*r.ko.Spec.EBSOptions.EBSEnabled)
 		}
 		if r.ko.Spec.EBSOptions.IOPS != nil {
-			f6.SetIops(*r.ko.Spec.EBSOptions.IOPS)
+			f7.SetIops(*r.ko.Spec.EBSOptions.IOPS)
 		}
 		if r.ko.Spec.EBSOptions.VolumeSize != nil {
-			f6.SetVolumeSize(*r.ko.Spec.EBSOptions.VolumeSize)
+			f7.SetVolumeSize(*r.ko.Spec.EBSOptions.VolumeSize)
 		}
 		if r.ko.Spec.EBSOptions.VolumeType != nil {
-			f6.SetVolumeType(*r.ko.Spec.EBSOptions.VolumeType)
+			f7.SetVolumeType(*r.ko.Spec.EBSOptions.VolumeType)
 		}
-		res.SetEBSOptions(f6)
+		res.SetEBSOptions(f7)
 	}
 	if r.ko.Spec.ElasticsearchClusterConfig != nil {
-		f7 := &svcsdk.ElasticsearchClusterConfig{}
+		f8 := &svcsdk.ElasticsearchClusterConfig{}
 		if r.ko.Spec.ElasticsearchClusterConfig.DedicatedMasterCount != nil {
-			f7.SetDedicatedMasterCount(*r.ko.Spec.ElasticsearchClusterConfig.DedicatedMasterCount)
+			f8.SetDedicatedMasterCount(*r.ko.Spec.ElasticsearchClusterConfig.DedicatedMasterCount)
 		}
 		if r.ko.Spec.ElasticsearchClusterConfig.DedicatedMasterEnabled != nil {
-			f7.SetDedicatedMasterEnabled(*r.ko.Spec.ElasticsearchClusterConfig.DedicatedMasterEnabled)
+			f8.SetDedicatedMasterEnabled(*r.ko.Spec.ElasticsearchClusterConfig.DedicatedMasterEnabled)
 		}
 		if r.ko.Spec.ElasticsearchClusterConfig.DedicatedMasterType != nil {
-			f7.SetDedicatedMasterType(*r.ko.Spec.ElasticsearchClusterConfig.DedicatedMasterType)
+			f8.SetDedicatedMasterType(*r.ko.Spec.ElasticsearchClusterConfig.DedicatedMasterType)
 		}
 		if r.ko.Spec.ElasticsearchClusterConfig.InstanceCount != nil {
-			f7.SetInstanceCount(*r.ko.Spec.ElasticsearchClusterConfig.InstanceCount)
+			f8.SetInstanceCount(*r.ko.Spec.ElasticsearchClusterConfig.InstanceCount)
 		}
 		if r.ko.Spec.ElasticsearchClusterConfig.InstanceType != nil {
-			f7.SetInstanceType(*r.ko.Spec.ElasticsearchClusterConfig.InstanceType)
+			f8.SetInstanceType(*r.ko.Spec.ElasticsearchClusterConfig.InstanceType)
 		}
 		if r.ko.Spec.ElasticsearchClusterConfig.WarmCount != nil {
-			f7.SetWarmCount(*r.ko.Spec.ElasticsearchClusterConfig.WarmCount)
+			f8.SetWarmCount(*r.ko.Spec.ElasticsearchClusterConfig.WarmCount)
 		}
 		if r.ko.Spec.ElasticsearchClusterConfig.WarmEnabled != nil {
-			f7.SetWarmEnabled(*r.ko.Spec.ElasticsearchClusterConfig.WarmEnabled)
+			f8.SetWarmEnabled(*r.ko.Spec.ElasticsearchClusterConfig.WarmEnabled)
 		}
 		if r.ko.Spec.ElasticsearchClusterConfig.WarmType != nil {
-			f7.SetWarmType(*r.ko.Spec.ElasticsearchClusterConfig.WarmType)
+			f8.SetWarmType(*r.ko.Spec.ElasticsearchClusterConfig.WarmType)
 		}
 		if r.ko.Spec.ElasticsearchClusterConfig.ZoneAwarenessConfig != nil {
-			f7f8 := &svcsdk.ZoneAwarenessConfig{}
+			f8f8 := &svcsdk.ZoneAwarenessConfig{}
 			if r.ko.Spec.ElasticsearchClusterConfig.ZoneAwarenessConfig.AvailabilityZoneCount != nil {
-				f7f8.SetAvailabilityZoneCount(*r.ko.Spec.ElasticsearchClusterConfig.ZoneAwarenessConfig.AvailabilityZoneCount)
+				f8f8.SetAvailabilityZoneCount(*r.ko.Spec.ElasticsearchClusterConfig.ZoneAwarenessConfig.AvailabilityZoneCount)
 			}
-			f7.SetZoneAwarenessConfig(f7f8)
+			f8.SetZoneAwarenessConfig(f8f8)
 		}
 		if r.ko.Spec.ElasticsearchClusterConfig.ZoneAwarenessEnabled != nil {
-			f7.SetZoneAwarenessEnabled(*r.ko.Spec.ElasticsearchClusterConfig.ZoneAwarenessEnabled)
+			f8.SetZoneAwarenessEnabled(*r.ko.Spec.ElasticsearchClusterConfig.ZoneAwarenessEnabled)
 		}
-		res.SetElasticsearchClusterConfig(f7)
+		res.SetElasticsearchClusterConfig(f8)
 	}
 	if r.ko.Spec.ElasticsearchVersion != nil {
 		res.SetElasticsearchVersion(*r.ko.Spec.ElasticsearchVersion)
 	}
 	if r.ko.Spec.EncryptionAtRestOptions != nil {
-		f9 := &svcsdk.EncryptionAtRestOptions{}
+		f10 := &svcsdk.EncryptionAtRestOptions{}
 		if r.ko.Spec.EncryptionAtRestOptions.Enabled != nil {
-			f9.SetEnabled(*r.ko.Spec.EncryptionAtRestOptions.Enabled)
+			f10.SetEnabled(*r.ko.Spec.EncryptionAtRestOptions.Enabled)
 		}
 		if r.ko.Spec.EncryptionAtRestOptions.KMSKeyID != nil {
-			f9.SetKmsKeyId(*r.ko.Spec.EncryptionAtRestOptions.KMSKeyID)
+			f10.SetKmsKeyId(*r.ko.Spec.EncryptionAtRestOptions.KMSKeyID)
 		}
-		res.SetEncryptionAtRestOptions(f9)
+		res.SetEncryptionAtRestOptions(f10)
 	}
 	if r.ko.Spec.LogPublishingOptions != nil {
-		f10 := map[string]*svcsdk.LogPublishingOption{}
-		for f10key, f10valiter := range r.ko.Spec.LogPublishingOptions {
-			f10val := &svcsdk.LogPublishingOption{}
-			if f10valiter.CloudWatchLogsLogGroupARN != nil {
-				f10val.SetCloudWatchLogsLogGroupArn(*f10valiter.CloudWatchLogsLogGroupARN)
+		f11 := map[string]*svcsdk.LogPublishingOption{}
+		for f11key, f11valiter := range r.ko.Spec.LogPublishingOptions {
+			f11val := &svcsdk.LogPublishingOption{}
+			if f11valiter.CloudWatchLogsLogGroupARN != nil {
+				f11val.SetCloudWatchLogsLogGroupArn(*f11valiter.CloudWatchLogsLogGroupARN)
 			}
-			if f10valiter.Enabled != nil {
-				f10val.SetEnabled(*f10valiter.Enabled)
+			if f11valiter.Enabled != nil {
+				f11val.SetEnabled(*f11valiter.Enabled)
 			}
-			f10[f10key] = f10val
+			f11[f11key] = f11val
 		}
-		res.SetLogPublishingOptions(f10)
+		res.SetLogPublishingOptions(f11)
 	}
 	if r.ko.Spec.NodeToNodeEncryptionOptions != nil {
-		f11 := &svcsdk.NodeToNodeEncryptionOptions{}
+		f12 := &svcsdk.NodeToNodeEncryptionOptions{}
 		if r.ko.Spec.NodeToNodeEncryptionOptions.Enabled != nil {
-			f11.SetEnabled(*r.ko.Spec.NodeToNodeEncryptionOptions.Enabled)
+			f12.SetEnabled(*r.ko.Spec.NodeToNodeEncryptionOptions.Enabled)
 		}
-		res.SetNodeToNodeEncryptionOptions(f11)
+		res.SetNodeToNodeEncryptionOptions(f12)
 	}
 	if r.ko.Spec.SnapshotOptions != nil {
-		f12 := &svcsdk.SnapshotOptions{}
+		f13 := &svcsdk.SnapshotOptions{}
 		if r.ko.Spec.SnapshotOptions.AutomatedSnapshotStartHour != nil {
-			f12.SetAutomatedSnapshotStartHour(*r.ko.Spec.SnapshotOptions.AutomatedSnapshotStartHour)
+			f13.SetAutomatedSnapshotStartHour(*r.ko.Spec.SnapshotOptions.AutomatedSnapshotStartHour)
 		}
-		res.SetSnapshotOptions(f12)
+		res.SetSnapshotOptions(f13)
+	}
+	if r.ko.Spec.TagList != nil {
+		f14 := []*svcsdk.Tag{}
+		for _, f14iter := range r.ko.Spec.TagList {
+			f14elem := &svcsdk.Tag{}
+			if f14iter.Key != nil {
+				f14elem.SetKey(*f14iter.Key)
+			}
+			if f14iter.Value != nil {
+				f14elem.SetValue(*f14iter.Value)
+			}
+			f14 = append(f14, f14elem)
+		}
+		res.SetTagList(f14)
 	}
 	if r.ko.Spec.VPCOptions != nil {
-		f13 := &svcsdk.VPCOptions{}
+		f15 := &svcsdk.VPCOptions{}
 		if r.ko.Spec.VPCOptions.SecurityGroupIDs != nil {
-			f13f0 := []*string{}
-			for _, f13f0iter := range r.ko.Spec.VPCOptions.SecurityGroupIDs {
-				var f13f0elem string
-				f13f0elem = *f13f0iter
-				f13f0 = append(f13f0, &f13f0elem)
+			f15f0 := []*string{}
+			for _, f15f0iter := range r.ko.Spec.VPCOptions.SecurityGroupIDs {
+				var f15f0elem string
+				f15f0elem = *f15f0iter
+				f15f0 = append(f15f0, &f15f0elem)
 			}
-			f13.SetSecurityGroupIds(f13f0)
+			f15.SetSecurityGroupIds(f15f0)
 		}
 		if r.ko.Spec.VPCOptions.SubnetIDs != nil {
-			f13f1 := []*string{}
-			for _, f13f1iter := range r.ko.Spec.VPCOptions.SubnetIDs {
-				var f13f1elem string
-				f13f1elem = *f13f1iter
-				f13f1 = append(f13f1, &f13f1elem)
+			f15f1 := []*string{}
+			for _, f15f1iter := range r.ko.Spec.VPCOptions.SubnetIDs {
+				var f15f1elem string
+				f15f1elem = *f15f1iter
+				f15f1 = append(f15f1, &f15f1elem)
 			}
-			f13.SetSubnetIds(f13f1)
+			f15.SetSubnetIds(f15f1)
 		}
-		res.SetVPCOptions(f13)
+		res.SetVPCOptions(f15)
 	}
 
 	return res, nil
@@ -764,15 +1061,19 @@ func (rm *resourceManager) sdkUpdate(
 func (rm *resourceManager) sdkDelete(
 	ctx context.Context,
 	r *resource,
-) error {
-
+) (latest *resource, err error) {
+	rlog := ackrtlog.FromContext(ctx)
+	exit := rlog.Trace("rm.sdkDelete")
+	defer exit(err)
 	input, err := rm.newDeleteRequestPayload(r)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	_, respErr := rm.sdkapi.DeleteElasticsearchDomainWithContext(ctx, input)
-	rm.metrics.RecordAPICall("DELETE", "DeleteElasticsearchDomain", respErr)
-	return respErr
+	var resp *svcsdk.DeleteElasticsearchDomainOutput
+	_ = resp
+	resp, err = rm.sdkapi.DeleteElasticsearchDomainWithContext(ctx, input)
+	rm.metrics.RecordAPICall("DELETE", "DeleteElasticsearchDomain", err)
+	return nil, err
 }
 
 // newDeleteRequestPayload returns an SDK-specific struct for the HTTP request
@@ -808,6 +1109,7 @@ func (rm *resourceManager) setStatusDefaults(
 // else it returns nil, false
 func (rm *resourceManager) updateConditions(
 	r *resource,
+	onSuccess bool,
 	err error,
 ) (*resource, bool) {
 	ko := r.ko.DeepCopy()
@@ -816,6 +1118,7 @@ func (rm *resourceManager) updateConditions(
 	// Terminal condition
 	var terminalCondition *ackv1alpha1.Condition = nil
 	var recoverableCondition *ackv1alpha1.Condition = nil
+	var syncCondition *ackv1alpha1.Condition = nil
 	for _, condition := range ko.Status.Conditions {
 		if condition.Type == ackv1alpha1.ConditionTypeTerminal {
 			terminalCondition = condition
@@ -823,18 +1126,26 @@ func (rm *resourceManager) updateConditions(
 		if condition.Type == ackv1alpha1.ConditionTypeRecoverable {
 			recoverableCondition = condition
 		}
+		if condition.Type == ackv1alpha1.ConditionTypeResourceSynced {
+			syncCondition = condition
+		}
 	}
 
-	if rm.terminalAWSError(err) {
+	if rm.terminalAWSError(err) || err == ackerr.SecretTypeNotSupported || err == ackerr.SecretNotFound {
 		if terminalCondition == nil {
 			terminalCondition = &ackv1alpha1.Condition{
 				Type: ackv1alpha1.ConditionTypeTerminal,
 			}
 			ko.Status.Conditions = append(ko.Status.Conditions, terminalCondition)
 		}
+		var errorMessage = ""
+		if err == ackerr.SecretTypeNotSupported || err == ackerr.SecretNotFound {
+			errorMessage = err.Error()
+		} else {
+			awsErr, _ := ackerr.AWSError(err)
+			errorMessage = awsErr.Message()
+		}
 		terminalCondition.Status = corev1.ConditionTrue
-		awsErr, _ := ackerr.AWSError(err)
-		errorMessage := awsErr.Message()
 		terminalCondition.Message = &errorMessage
 	} else {
 		// Clear the terminal condition if no longer present
@@ -863,7 +1174,9 @@ func (rm *resourceManager) updateConditions(
 			recoverableCondition.Message = nil
 		}
 	}
-	if terminalCondition != nil || recoverableCondition != nil {
+	// Required to avoid the "declared but not used" error in the default case
+	_ = syncCondition
+	if terminalCondition != nil || recoverableCondition != nil || syncCondition != nil {
 		return &resource{ko}, true // updated
 	}
 	return nil, false // not updated

@@ -15,6 +15,33 @@
 
 package v1alpha1
 
+type AutoTuneDesiredState string
+
+const (
+	AutoTuneDesiredState_ENABLED  AutoTuneDesiredState = "ENABLED"
+	AutoTuneDesiredState_DISABLED AutoTuneDesiredState = "DISABLED"
+)
+
+type AutoTuneState string
+
+const (
+	AutoTuneState_ENABLED                           AutoTuneState = "ENABLED"
+	AutoTuneState_DISABLED                          AutoTuneState = "DISABLED"
+	AutoTuneState_ENABLE_IN_PROGRESS                AutoTuneState = "ENABLE_IN_PROGRESS"
+	AutoTuneState_DISABLE_IN_PROGRESS               AutoTuneState = "DISABLE_IN_PROGRESS"
+	AutoTuneState_DISABLED_AND_ROLLBACK_SCHEDULED   AutoTuneState = "DISABLED_AND_ROLLBACK_SCHEDULED"
+	AutoTuneState_DISABLED_AND_ROLLBACK_IN_PROGRESS AutoTuneState = "DISABLED_AND_ROLLBACK_IN_PROGRESS"
+	AutoTuneState_DISABLED_AND_ROLLBACK_COMPLETE    AutoTuneState = "DISABLED_AND_ROLLBACK_COMPLETE"
+	AutoTuneState_DISABLED_AND_ROLLBACK_ERROR       AutoTuneState = "DISABLED_AND_ROLLBACK_ERROR"
+	AutoTuneState_ERROR                             AutoTuneState = "ERROR"
+)
+
+type AutoTuneType string
+
+const (
+	AutoTuneType_SCHEDULED_ACTION AutoTuneType = "SCHEDULED_ACTION"
+)
+
 type DeploymentStatus string
 
 const (
@@ -181,11 +208,39 @@ const (
 	ReservedElasticsearchInstancePaymentOption_NO_UPFRONT      ReservedElasticsearchInstancePaymentOption = "NO_UPFRONT"
 )
 
+type RollbackOnDisable string
+
+const (
+	RollbackOnDisable_NO_ROLLBACK      RollbackOnDisable = "NO_ROLLBACK"
+	RollbackOnDisable_DEFAULT_ROLLBACK RollbackOnDisable = "DEFAULT_ROLLBACK"
+)
+
+type ScheduledAutoTuneActionType string
+
+const (
+	ScheduledAutoTuneActionType_JVM_HEAP_SIZE_TUNING ScheduledAutoTuneActionType = "JVM_HEAP_SIZE_TUNING"
+	ScheduledAutoTuneActionType_JVM_YOUNG_GEN_TUNING ScheduledAutoTuneActionType = "JVM_YOUNG_GEN_TUNING"
+)
+
+type ScheduledAutoTuneSeverityType string
+
+const (
+	ScheduledAutoTuneSeverityType_LOW    ScheduledAutoTuneSeverityType = "LOW"
+	ScheduledAutoTuneSeverityType_MEDIUM ScheduledAutoTuneSeverityType = "MEDIUM"
+	ScheduledAutoTuneSeverityType_HIGH   ScheduledAutoTuneSeverityType = "HIGH"
+)
+
 type TLSSecurityPolicy string
 
 const (
 	TLSSecurityPolicy_Policy_Min_TLS_1_0_2019_07 TLSSecurityPolicy = "Policy-Min-TLS-1-0-2019-07"
 	TLSSecurityPolicy_Policy_Min_TLS_1_2_2019_07 TLSSecurityPolicy = "Policy-Min-TLS-1-2-2019-07"
+)
+
+type TimeUnit string
+
+const (
+	TimeUnit_HOURS TimeUnit = "HOURS"
 )
 
 type UpgradeStatus string

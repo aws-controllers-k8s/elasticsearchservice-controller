@@ -28,168 +28,382 @@ var (
 	_ = ackv1alpha1.AWSAccountID("")
 )
 
+// The configured access rules for the domain's document and search endpoints,
+// and the current status of those rules.
 type AccessPoliciesStatus struct {
+	// Access policy rules for an Elasticsearch domain service endpoints. For more
+	// information, see Configuring Access Policies (http://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/es-createupdatedomains.html#es-createdomain-configure-access-policies)
+	// in the Amazon Elasticsearch Service Developer Guide. The maximum size of
+	// a policy document is 100 KB.
 	Options *string `json:"options,omitempty"`
 }
 
+// Status of the advanced options for the specified Elasticsearch domain. Currently,
+// the following advanced options are available:
+//
+//    * Option to allow references to indices in an HTTP request body. Must
+//    be false when configuring access to individual sub-resources. By default,
+//    the value is true. See Configuration Advanced Options for more information.
+//
+//    * Option to specify the percentage of heap space that is allocated to
+//    field data. By default, this setting is unbounded.
+//
+// For more information, see Configuring Advanced Options (http://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/es-createupdatedomains.html#es-createdomain-configure-advanced-options).
 type AdvancedOptionsStatus struct {
+	// Exposes select native Elasticsearch configuration values from elasticsearch.yml.
+	// Currently, the following advanced options are available:
+	//
+	//    * Option to allow references to indices in an HTTP request body. Must
+	//    be false when configuring access to individual sub-resources. By default,
+	//    the value is true. See Configuration Advanced Options for more information.
+	//
+	//    * Option to specify the percentage of heap space that is allocated to
+	//    field data. By default, this setting is unbounded.
+	//
+	// For more information, see Configuring Advanced Options (http://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/es-createupdatedomains.html#es-createdomain-configure-advanced-options).
 	Options map[string]*string `json:"options,omitempty"`
 }
 
+// Specifies the advanced security configuration: whether advanced security
+// is enabled, whether the internal database option is enabled.
 type AdvancedSecurityOptions struct {
-	Enabled                     *bool              `json:"enabled,omitempty"`
-	InternalUserDatabaseEnabled *bool              `json:"internalUserDatabaseEnabled,omitempty"`
-	SAMLOptions                 *SAMLOptionsOutput `json:"sAMLOptions,omitempty"`
+	Enabled                     *bool `json:"enabled,omitempty"`
+	InternalUserDatabaseEnabled *bool `json:"internalUserDatabaseEnabled,omitempty"`
+	// Describes the SAML application configured for the domain.
+	SAMLOptions *SAMLOptionsOutput `json:"sAMLOptions,omitempty"`
 }
 
+// Specifies the advanced security configuration: whether advanced security
+// is enabled, whether the internal database option is enabled, master username
+// and password (if internal database is enabled), and master user ARN (if IAM
+// is enabled).
 type AdvancedSecurityOptionsInput struct {
-	Enabled                     *bool              `json:"enabled,omitempty"`
-	InternalUserDatabaseEnabled *bool              `json:"internalUserDatabaseEnabled,omitempty"`
-	MasterUserOptions           *MasterUserOptions `json:"masterUserOptions,omitempty"`
-	SAMLOptions                 *SAMLOptionsInput  `json:"sAMLOptions,omitempty"`
+	Enabled                     *bool `json:"enabled,omitempty"`
+	InternalUserDatabaseEnabled *bool `json:"internalUserDatabaseEnabled,omitempty"`
+	// Credentials for the master user: username and password, ARN, or both.
+	MasterUserOptions *MasterUserOptions `json:"masterUserOptions,omitempty"`
+	// Specifies the SAML application configuration for the domain.
+	SAMLOptions *SAMLOptionsInput `json:"sAMLOptions,omitempty"`
 }
 
+// Specifies the status of advanced security options for the specified Elasticsearch
+// domain.
 type AdvancedSecurityOptionsStatus struct {
+	// Specifies the advanced security configuration: whether advanced security
+	// is enabled, whether the internal database option is enabled.
 	Options *AdvancedSecurityOptions `json:"options,omitempty"`
 }
 
+// Specifies Auto-Tune maitenance schedule. See the Developer Guide (https://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/auto-tune.html)
+// for more information.
+type AutoTuneMaintenanceSchedule struct {
+	CronExpressionForRecurrence *string `json:"cronExpressionForRecurrence,omitempty"`
+	// Specifies maintenance schedule duration: duration value and duration unit.
+	// See the Developer Guide (https://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/auto-tune.html)
+	// for more information.
+	Duration *Duration    `json:"duration,omitempty"`
+	StartAt  *metav1.Time `json:"startAt,omitempty"`
+}
+
+// Specifies the Auto-Tune options: the Auto-Tune desired state for the domain,
+// rollback state when disabling Auto-Tune options and list of maintenance schedules.
+type AutoTuneOptions struct {
+	// Specifies the Auto-Tune desired state. Valid values are ENABLED, DISABLED.
+	DesiredState         *string                        `json:"desiredState,omitempty"`
+	MaintenanceSchedules []*AutoTuneMaintenanceSchedule `json:"maintenanceSchedules,omitempty"`
+}
+
+// Specifies the Auto-Tune options: the Auto-Tune desired state for the domain
+// and list of maintenance schedules.
+type AutoTuneOptionsInput struct {
+	// Specifies the Auto-Tune desired state. Valid values are ENABLED, DISABLED.
+	DesiredState         *string                        `json:"desiredState,omitempty"`
+	MaintenanceSchedules []*AutoTuneMaintenanceSchedule `json:"maintenanceSchedules,omitempty"`
+}
+
+// Specifies the Auto-Tune options: the Auto-Tune desired state for the domain
+// and list of maintenance schedules.
+type AutoTuneOptionsOutput struct {
+	ErrorMessage *string `json:"errorMessage,omitempty"`
+	// Specifies the Auto-Tune state for the Elasticsearch domain. For valid states
+	// see the Developer Guide (https://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/auto-tune.html).
+	State *string `json:"state,omitempty"`
+}
+
+// Provides the current status of the Auto-Tune options.
+type AutoTuneStatus struct {
+	ErrorMessage    *string `json:"errorMessage,omitempty"`
+	PendingDeletion *bool   `json:"pendingDeletion,omitempty"`
+	// Specifies the Auto-Tune state for the Elasticsearch domain. For valid states
+	// see the Developer Guide (https://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/auto-tune.html).
+	State *string `json:"state,omitempty"`
+}
+
+// Options to specify the Cognito user and identity pools for Kibana authentication.
+// For more information, see Amazon Cognito Authentication for Kibana (http://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/es-cognito-auth.html).
 type CognitoOptions struct {
 	Enabled        *bool   `json:"enabled,omitempty"`
-	IDentityPoolID *string `json:"identityPoolID,omitempty"`
+	IdentityPoolID *string `json:"identityPoolID,omitempty"`
 	RoleARN        *string `json:"roleARN,omitempty"`
 	UserPoolID     *string `json:"userPoolID,omitempty"`
 }
 
+// Status of the Cognito options for the specified Elasticsearch domain.
 type CognitoOptionsStatus struct {
+	// Options to specify the Cognito user and identity pools for Kibana authentication.
+	// For more information, see Amazon Cognito Authentication for Kibana (http://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/es-cognito-auth.html).
 	Options *CognitoOptions `json:"options,omitempty"`
 }
 
+// A map from an ElasticsearchVersion to a list of compatible ElasticsearchVersion
+// s to which the domain can be upgraded.
 type CompatibleVersionsMap struct {
 	SourceVersion *string `json:"sourceVersion,omitempty"`
 }
 
+// Options to configure endpoint for the Elasticsearch domain.
 type DomainEndpointOptions struct {
-	CustomEndpoint               *string `json:"customEndpoint,omitempty"`
+	CustomEndpoint *string `json:"customEndpoint,omitempty"`
+	// The Amazon Resource Name (ARN) of the Elasticsearch domain. See Identifiers
+	// for IAM Entities (http://docs.aws.amazon.com/IAM/latest/UserGuide/index.html?Using_Identifiers.html)
+	// in Using AWS Identity and Access Management for more information.
 	CustomEndpointCertificateARN *string `json:"customEndpointCertificateARN,omitempty"`
 	CustomEndpointEnabled        *bool   `json:"customEndpointEnabled,omitempty"`
 	EnforceHTTPS                 *bool   `json:"enforceHTTPS,omitempty"`
 	TLSSecurityPolicy            *string `json:"tlsSecurityPolicy,omitempty"`
 }
 
+// The configured endpoint options for the domain and their current status.
 type DomainEndpointOptionsStatus struct {
+	// Options to configure endpoint for the Elasticsearch domain.
 	Options *DomainEndpointOptions `json:"options,omitempty"`
 }
 
 type DomainInfo struct {
+	// The name of an Elasticsearch domain. Domain names are unique across the domains
+	// owned by an account within an AWS region. Domain names start with a letter
+	// or number and can contain the following characters: a-z (lowercase), 0-9,
+	// and - (hyphen).
 	DomainName *string `json:"domainName,omitempty"`
 }
 
 type DomainInformation struct {
+	// The name of an Elasticsearch domain. Domain names are unique across the domains
+	// owned by an account within an AWS region. Domain names start with a letter
+	// or number and can contain the following characters: a-z (lowercase), 0-9,
+	// and - (hyphen).
 	DomainName *string `json:"domainName,omitempty"`
 }
 
+// Information on a package that is associated with a domain.
 type DomainPackageDetails struct {
+	// The name of an Elasticsearch domain. Domain names are unique across the domains
+	// owned by an account within an AWS region. Domain names start with a letter
+	// or number and can contain the following characters: a-z (lowercase), 0-9,
+	// and - (hyphen).
 	DomainName *string `json:"domainName,omitempty"`
 }
 
+// Specifies maintenance schedule duration: duration value and duration unit.
+// See the Developer Guide (https://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/auto-tune.html)
+// for more information.
+type Duration struct {
+	// Specifies the unit of a maintenance schedule duration. Valid value is HOUR.
+	// See the Developer Guide (https://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/auto-tune.html)
+	// for more information.
+	Unit *string `json:"unit,omitempty"`
+	// Integer to specify the value of a maintenance schedule duration. See the
+	// Developer Guide (https://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/auto-tune.html)
+	// for more information.
+	Value *int64 `json:"value,omitempty"`
+}
+
+// Options to enable, disable, and specify the properties of EBS storage volumes.
+// For more information, see Configuring EBS-based Storage (http://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/es-createupdatedomains.html#es-createdomain-configure-ebs).
 type EBSOptions struct {
-	EBSEnabled *bool   `json:"ebsEnabled,omitempty"`
-	IOPS       *int64  `json:"iops,omitempty"`
-	VolumeSize *int64  `json:"volumeSize,omitempty"`
+	EBSEnabled *bool  `json:"ebsEnabled,omitempty"`
+	IOPS       *int64 `json:"iops,omitempty"`
+	VolumeSize *int64 `json:"volumeSize,omitempty"`
+	// The type of EBS volume, standard, gp2, or io1. See Configuring EBS-based
+	// Storage (http://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/es-createupdatedomains.html#es-createdomain-configure-ebs)for
+	// more information.
 	VolumeType *string `json:"volumeType,omitempty"`
 }
 
+// Status of the EBS options for the specified Elasticsearch domain.
 type EBSOptionsStatus struct {
+	// Options to enable, disable, and specify the properties of EBS storage volumes.
+	// For more information, see Configuring EBS-based Storage (http://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/es-createupdatedomains.html#es-createdomain-configure-ebs).
 	Options *EBSOptions `json:"options,omitempty"`
 }
 
+// Specifies the configuration for the domain cluster, such as the type and
+// number of instances.
 type ElasticsearchClusterConfig struct {
-	DedicatedMasterCount   *int64               `json:"dedicatedMasterCount,omitempty"`
-	DedicatedMasterEnabled *bool                `json:"dedicatedMasterEnabled,omitempty"`
-	DedicatedMasterType    *string              `json:"dedicatedMasterType,omitempty"`
-	InstanceCount          *int64               `json:"instanceCount,omitempty"`
-	InstanceType           *string              `json:"instanceType,omitempty"`
-	WarmCount              *int64               `json:"warmCount,omitempty"`
-	WarmEnabled            *bool                `json:"warmEnabled,omitempty"`
-	WarmType               *string              `json:"warmType,omitempty"`
-	ZoneAwarenessConfig    *ZoneAwarenessConfig `json:"zoneAwarenessConfig,omitempty"`
-	ZoneAwarenessEnabled   *bool                `json:"zoneAwarenessEnabled,omitempty"`
+	DedicatedMasterCount   *int64  `json:"dedicatedMasterCount,omitempty"`
+	DedicatedMasterEnabled *bool   `json:"dedicatedMasterEnabled,omitempty"`
+	DedicatedMasterType    *string `json:"dedicatedMasterType,omitempty"`
+	InstanceCount          *int64  `json:"instanceCount,omitempty"`
+	InstanceType           *string `json:"instanceType,omitempty"`
+	WarmCount              *int64  `json:"warmCount,omitempty"`
+	WarmEnabled            *bool   `json:"warmEnabled,omitempty"`
+	WarmType               *string `json:"warmType,omitempty"`
+	// Specifies the zone awareness configuration for the domain cluster, such as
+	// the number of availability zones.
+	ZoneAwarenessConfig  *ZoneAwarenessConfig `json:"zoneAwarenessConfig,omitempty"`
+	ZoneAwarenessEnabled *bool                `json:"zoneAwarenessEnabled,omitempty"`
 }
 
+// Specifies the configuration status for the specified Elasticsearch domain.
 type ElasticsearchClusterConfigStatus struct {
+	// Specifies the configuration for the domain cluster, such as the type and
+	// number of instances.
 	Options *ElasticsearchClusterConfig `json:"options,omitempty"`
 }
 
+// The current status of an Elasticsearch domain.
 type ElasticsearchDomainStatus_SDK struct {
-	ARN                         *string                           `json:"arn,omitempty"`
-	AccessPolicies              *string                           `json:"accessPolicies,omitempty"`
-	AdvancedOptions             map[string]*string                `json:"advancedOptions,omitempty"`
-	AdvancedSecurityOptions     *AdvancedSecurityOptions          `json:"advancedSecurityOptions,omitempty"`
-	CognitoOptions              *CognitoOptions                   `json:"cognitoOptions,omitempty"`
-	Created                     *bool                             `json:"created,omitempty"`
-	Deleted                     *bool                             `json:"deleted,omitempty"`
-	DomainEndpointOptions       *DomainEndpointOptions            `json:"domainEndpointOptions,omitempty"`
-	DomainID                    *string                           `json:"domainID,omitempty"`
-	DomainName                  *string                           `json:"domainName,omitempty"`
-	EBSOptions                  *EBSOptions                       `json:"ebsOptions,omitempty"`
-	ElasticsearchClusterConfig  *ElasticsearchClusterConfig       `json:"elasticsearchClusterConfig,omitempty"`
-	ElasticsearchVersion        *string                           `json:"elasticsearchVersion,omitempty"`
-	EncryptionAtRestOptions     *EncryptionAtRestOptions          `json:"encryptionAtRestOptions,omitempty"`
-	Endpoint                    *string                           `json:"endpoint,omitempty"`
-	Endpoints                   map[string]*string                `json:"endpoints,omitempty"`
-	LogPublishingOptions        []map[string]*LogPublishingOption `json:"logPublishingOptions,omitempty"`
-	NodeToNodeEncryptionOptions *NodeToNodeEncryptionOptions      `json:"nodeToNodeEncryptionOptions,omitempty"`
-	Processing                  *bool                             `json:"processing,omitempty"`
-	ServiceSoftwareOptions      *ServiceSoftwareOptions           `json:"serviceSoftwareOptions,omitempty"`
-	SnapshotOptions             *SnapshotOptions                  `json:"snapshotOptions,omitempty"`
-	UpgradeProcessing           *bool                             `json:"upgradeProcessing,omitempty"`
-	VPCOptions                  *VPCDerivedInfo                   `json:"vpcOptions,omitempty"`
+	// The Amazon Resource Name (ARN) of the Elasticsearch domain. See Identifiers
+	// for IAM Entities (http://docs.aws.amazon.com/IAM/latest/UserGuide/index.html?Using_Identifiers.html)
+	// in Using AWS Identity and Access Management for more information.
+	ARN *string `json:"arn,omitempty"`
+	// Access policy rules for an Elasticsearch domain service endpoints. For more
+	// information, see Configuring Access Policies (http://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/es-createupdatedomains.html#es-createdomain-configure-access-policies)
+	// in the Amazon Elasticsearch Service Developer Guide. The maximum size of
+	// a policy document is 100 KB.
+	AccessPolicies *string `json:"accessPolicies,omitempty"`
+	// Exposes select native Elasticsearch configuration values from elasticsearch.yml.
+	// Currently, the following advanced options are available:
+	//
+	//    * Option to allow references to indices in an HTTP request body. Must
+	//    be false when configuring access to individual sub-resources. By default,
+	//    the value is true. See Configuration Advanced Options for more information.
+	//
+	//    * Option to specify the percentage of heap space that is allocated to
+	//    field data. By default, this setting is unbounded.
+	//
+	// For more information, see Configuring Advanced Options (http://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/es-createupdatedomains.html#es-createdomain-configure-advanced-options).
+	AdvancedOptions map[string]*string `json:"advancedOptions,omitempty"`
+	// Specifies the advanced security configuration: whether advanced security
+	// is enabled, whether the internal database option is enabled.
+	AdvancedSecurityOptions *AdvancedSecurityOptions `json:"advancedSecurityOptions,omitempty"`
+	// Specifies the Auto-Tune options: the Auto-Tune desired state for the domain
+	// and list of maintenance schedules.
+	AutoTuneOptions *AutoTuneOptionsOutput `json:"autoTuneOptions,omitempty"`
+	// Options to specify the Cognito user and identity pools for Kibana authentication.
+	// For more information, see Amazon Cognito Authentication for Kibana (http://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/es-cognito-auth.html).
+	CognitoOptions *CognitoOptions `json:"cognitoOptions,omitempty"`
+	Created        *bool           `json:"created,omitempty"`
+	Deleted        *bool           `json:"deleted,omitempty"`
+	// Options to configure endpoint for the Elasticsearch domain.
+	DomainEndpointOptions *DomainEndpointOptions `json:"domainEndpointOptions,omitempty"`
+	// Unique identifier for an Elasticsearch domain.
+	DomainID *string `json:"domainID,omitempty"`
+	// The name of an Elasticsearch domain. Domain names are unique across the domains
+	// owned by an account within an AWS region. Domain names start with a letter
+	// or number and can contain the following characters: a-z (lowercase), 0-9,
+	// and - (hyphen).
+	DomainName *string `json:"domainName,omitempty"`
+	// Options to enable, disable, and specify the properties of EBS storage volumes.
+	// For more information, see Configuring EBS-based Storage (http://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/es-createupdatedomains.html#es-createdomain-configure-ebs).
+	EBSOptions *EBSOptions `json:"ebsOptions,omitempty"`
+	// Specifies the configuration for the domain cluster, such as the type and
+	// number of instances.
+	ElasticsearchClusterConfig *ElasticsearchClusterConfig `json:"elasticsearchClusterConfig,omitempty"`
+	ElasticsearchVersion       *string                     `json:"elasticsearchVersion,omitempty"`
+	// Specifies the Encryption At Rest Options.
+	EncryptionAtRestOptions *EncryptionAtRestOptions `json:"encryptionAtRestOptions,omitempty"`
+	// The endpoint to which service requests are submitted. For example, search-imdb-movies-oopcnjfn6ugofer3zx5iadxxca.eu-west-1.es.amazonaws.com
+	// or doc-imdb-movies-oopcnjfn6ugofer3zx5iadxxca.eu-west-1.es.amazonaws.com.
+	Endpoint             *string                         `json:"endpoint,omitempty"`
+	Endpoints            map[string]*string              `json:"endpoints,omitempty"`
+	LogPublishingOptions map[string]*LogPublishingOption `json:"logPublishingOptions,omitempty"`
+	// Specifies the node-to-node encryption options.
+	NodeToNodeEncryptionOptions *NodeToNodeEncryptionOptions `json:"nodeToNodeEncryptionOptions,omitempty"`
+	Processing                  *bool                        `json:"processing,omitempty"`
+	// The current options of an Elasticsearch domain service software options.
+	ServiceSoftwareOptions *ServiceSoftwareOptions `json:"serviceSoftwareOptions,omitempty"`
+	// Specifies the time, in UTC format, when the service takes a daily automated
+	// snapshot of the specified Elasticsearch domain. Default value is 0 hours.
+	SnapshotOptions   *SnapshotOptions `json:"snapshotOptions,omitempty"`
+	UpgradeProcessing *bool            `json:"upgradeProcessing,omitempty"`
+	// Options to specify the subnets and security groups for VPC endpoint. For
+	// more information, see VPC Endpoints for Amazon Elasticsearch Service Domains
+	// (http://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/es-vpc.html).
+	VPCOptions *VPCDerivedInfo `json:"vpcOptions,omitempty"`
 }
 
+// Status of the Elasticsearch version options for the specified Elasticsearch
+// domain.
 type ElasticsearchVersionStatus struct {
 	Options *string `json:"options,omitempty"`
 }
 
+// Specifies the Encryption At Rest Options.
 type EncryptionAtRestOptions struct {
 	Enabled  *bool   `json:"enabled,omitempty"`
 	KMSKeyID *string `json:"kmsKeyID,omitempty"`
 }
 
+// Status of the Encryption At Rest options for the specified Elasticsearch
+// domain.
 type EncryptionAtRestOptionsStatus struct {
+	// Specifies the Encryption At Rest Options.
 	Options *EncryptionAtRestOptions `json:"options,omitempty"`
 }
 
+// Log Publishing option that is set for given domain. Attributes and their
+// details:
+//    * CloudWatchLogsLogGroupArn: ARN of the Cloudwatch log group to which
+//    log needs to be published.
+//
+//    * Enabled: Whether the log publishing for given log type is enabled or
+//    not
 type LogPublishingOption struct {
+	// ARN of the Cloudwatch log group to which log needs to be published.
 	CloudWatchLogsLogGroupARN *string `json:"cloudWatchLogsLogGroupARN,omitempty"`
 	Enabled                   *bool   `json:"enabled,omitempty"`
 }
 
+// The configured log publishing options for the domain and their current status.
 type LogPublishingOptionsStatus struct {
-	Options []map[string]*LogPublishingOption `json:"options,omitempty"`
+	Options map[string]*LogPublishingOption `json:"options,omitempty"`
 }
 
+// Credentials for the master user: username and password, ARN, or both.
 type MasterUserOptions struct {
+	// The Amazon Resource Name (ARN) of the Elasticsearch domain. See Identifiers
+	// for IAM Entities (http://docs.aws.amazon.com/IAM/latest/UserGuide/index.html?Using_Identifiers.html)
+	// in Using AWS Identity and Access Management for more information.
 	MasterUserARN      *string `json:"masterUserARN,omitempty"`
 	MasterUserName     *string `json:"masterUserName,omitempty"`
 	MasterUserPassword *string `json:"masterUserPassword,omitempty"`
 }
 
+// Specifies the node-to-node encryption options.
 type NodeToNodeEncryptionOptions struct {
 	Enabled *bool `json:"enabled,omitempty"`
 }
 
+// Status of the node-to-node encryption options for the specified Elasticsearch
+// domain.
 type NodeToNodeEncryptionOptionsStatus struct {
+	// Specifies the node-to-node encryption options.
 	Options *NodeToNodeEncryptionOptions `json:"options,omitempty"`
 }
 
+// Provides the current status of the entity.
 type OptionStatus struct {
 	PendingDeletion *bool `json:"pendingDeletion,omitempty"`
 }
 
+// Contains the specific price and frequency of a recurring charges for a reserved
+// Elasticsearch instance, or for a reserved Elasticsearch instance offering.
 type RecurringCharge struct {
 	RecurringChargeFrequency *string `json:"recurringChargeFrequency,omitempty"`
 }
 
+// Details of a reserved Elasticsearch instance.
 type ReservedElasticsearchInstance struct {
 	CurrencyCode                            *string `json:"currencyCode,omitempty"`
 	ElasticsearchInstanceType               *string `json:"elasticsearchInstanceType,omitempty"`
@@ -197,18 +411,22 @@ type ReservedElasticsearchInstance struct {
 	State                                   *string `json:"state,omitempty"`
 }
 
+// Details of a reserved Elasticsearch instance offering.
 type ReservedElasticsearchInstanceOffering struct {
 	CurrencyCode              *string `json:"currencyCode,omitempty"`
 	ElasticsearchInstanceType *string `json:"elasticsearchInstanceType,omitempty"`
 }
 
+// Specifies the SAML Identity Provider's information.
 type SAMLIDp struct {
 	EntityID        *string `json:"entityID,omitempty"`
 	MetadataContent *string `json:"metadataContent,omitempty"`
 }
 
+// Specifies the SAML application configuration for the domain.
 type SAMLOptionsInput struct {
-	Enabled               *bool    `json:"enabled,omitempty"`
+	Enabled *bool `json:"enabled,omitempty"`
+	// Specifies the SAML Identity Provider's information.
 	IDp                   *SAMLIDp `json:"idp,omitempty"`
 	MasterBackendRole     *string  `json:"masterBackendRole,omitempty"`
 	MasterUserName        *string  `json:"masterUserName,omitempty"`
@@ -217,14 +435,17 @@ type SAMLOptionsInput struct {
 	SubjectKey            *string  `json:"subjectKey,omitempty"`
 }
 
+// Describes the SAML application configured for the domain.
 type SAMLOptionsOutput struct {
-	Enabled               *bool    `json:"enabled,omitempty"`
+	Enabled *bool `json:"enabled,omitempty"`
+	// Specifies the SAML Identity Provider's information.
 	IDp                   *SAMLIDp `json:"idp,omitempty"`
 	RolesKey              *string  `json:"rolesKey,omitempty"`
 	SessionTimeoutMinutes *int64   `json:"sessionTimeoutMinutes,omitempty"`
 	SubjectKey            *string  `json:"subjectKey,omitempty"`
 }
 
+// The current options of an Elasticsearch domain service software options.
 type ServiceSoftwareOptions struct {
 	AutomatedUpdateDate *metav1.Time `json:"automatedUpdateDate,omitempty"`
 	Cancellable         *bool        `json:"cancellable,omitempty"`
@@ -236,14 +457,33 @@ type ServiceSoftwareOptions struct {
 	UpdateStatus        *string      `json:"updateStatus,omitempty"`
 }
 
+// Specifies the time, in UTC format, when the service takes a daily automated
+// snapshot of the specified Elasticsearch domain. Default value is 0 hours.
 type SnapshotOptions struct {
 	AutomatedSnapshotStartHour *int64 `json:"automatedSnapshotStartHour,omitempty"`
 }
 
+// Status of a daily automated snapshot.
 type SnapshotOptionsStatus struct {
+	// Specifies the time, in UTC format, when the service takes a daily automated
+	// snapshot of the specified Elasticsearch domain. Default value is 0 hours.
 	Options *SnapshotOptions `json:"options,omitempty"`
 }
 
+// Specifies a key value pair for a resource tag.
+type Tag struct {
+	// A string of length from 1 to 128 characters that specifies the key for a
+	// Tag. Tag keys must be unique for the Elasticsearch domain to which they are
+	// attached.
+	Key *string `json:"key,omitempty"`
+	// A string of length from 0 to 256 characters that specifies the value for
+	// a Tag. Tag values can be null and do not have to be unique in a tag set.
+	Value *string `json:"value,omitempty"`
+}
+
+// Options to specify the subnets and security groups for VPC endpoint. For
+// more information, see VPC Endpoints for Amazon Elasticsearch Service Domains
+// (http://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/es-vpc.html).
 type VPCDerivedInfo struct {
 	AvailabilityZones []*string `json:"availabilityZones,omitempty"`
 	SecurityGroupIDs  []*string `json:"securityGroupIDs,omitempty"`
@@ -251,15 +491,24 @@ type VPCDerivedInfo struct {
 	VPCID             *string   `json:"vpcID,omitempty"`
 }
 
+// Status of the VPC options for the specified Elasticsearch domain.
 type VPCDerivedInfoStatus struct {
+	// Options to specify the subnets and security groups for VPC endpoint. For
+	// more information, see VPC Endpoints for Amazon Elasticsearch Service Domains
+	// (http://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/es-vpc.html).
 	Options *VPCDerivedInfo `json:"options,omitempty"`
 }
 
+// Options to specify the subnets and security groups for VPC endpoint. For
+// more information, see VPC Endpoints for Amazon Elasticsearch Service Domains
+// (http://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/es-vpc.html).
 type VPCOptions struct {
 	SecurityGroupIDs []*string `json:"securityGroupIDs,omitempty"`
 	SubnetIDs        []*string `json:"subnetIDs,omitempty"`
 }
 
+// Specifies the zone awareness configuration for the domain cluster, such as
+// the number of availability zones.
 type ZoneAwarenessConfig struct {
 	AvailabilityZoneCount *int64 `json:"availabilityZoneCount,omitempty"`
 }

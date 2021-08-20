@@ -16,7 +16,14 @@
 package elasticsearch_domain
 
 import (
+	"reflect"
+
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
+)
+
+// Hack to avoid import errors during build...
+var (
+	_ = &reflect.Method{}
 )
 
 // newResourceDelta returns a new `ackcompare.Delta` used to compare two
@@ -153,6 +160,20 @@ func newResourceDelta(
 			}
 		}
 	}
+	if ackcompare.HasNilDifference(a.ko.Spec.AutoTuneOptions, b.ko.Spec.AutoTuneOptions) {
+		delta.Add("Spec.AutoTuneOptions", a.ko.Spec.AutoTuneOptions, b.ko.Spec.AutoTuneOptions)
+	} else if a.ko.Spec.AutoTuneOptions != nil && b.ko.Spec.AutoTuneOptions != nil {
+		if ackcompare.HasNilDifference(a.ko.Spec.AutoTuneOptions.DesiredState, b.ko.Spec.AutoTuneOptions.DesiredState) {
+			delta.Add("Spec.AutoTuneOptions.DesiredState", a.ko.Spec.AutoTuneOptions.DesiredState, b.ko.Spec.AutoTuneOptions.DesiredState)
+		} else if a.ko.Spec.AutoTuneOptions.DesiredState != nil && b.ko.Spec.AutoTuneOptions.DesiredState != nil {
+			if *a.ko.Spec.AutoTuneOptions.DesiredState != *b.ko.Spec.AutoTuneOptions.DesiredState {
+				delta.Add("Spec.AutoTuneOptions.DesiredState", a.ko.Spec.AutoTuneOptions.DesiredState, b.ko.Spec.AutoTuneOptions.DesiredState)
+			}
+		}
+		if !reflect.DeepEqual(a.ko.Spec.AutoTuneOptions.MaintenanceSchedules, b.ko.Spec.AutoTuneOptions.MaintenanceSchedules) {
+			delta.Add("Spec.AutoTuneOptions.MaintenanceSchedules", a.ko.Spec.AutoTuneOptions.MaintenanceSchedules, b.ko.Spec.AutoTuneOptions.MaintenanceSchedules)
+		}
+	}
 	if ackcompare.HasNilDifference(a.ko.Spec.CognitoOptions, b.ko.Spec.CognitoOptions) {
 		delta.Add("Spec.CognitoOptions", a.ko.Spec.CognitoOptions, b.ko.Spec.CognitoOptions)
 	} else if a.ko.Spec.CognitoOptions != nil && b.ko.Spec.CognitoOptions != nil {
@@ -163,11 +184,11 @@ func newResourceDelta(
 				delta.Add("Spec.CognitoOptions.Enabled", a.ko.Spec.CognitoOptions.Enabled, b.ko.Spec.CognitoOptions.Enabled)
 			}
 		}
-		if ackcompare.HasNilDifference(a.ko.Spec.CognitoOptions.IDentityPoolID, b.ko.Spec.CognitoOptions.IDentityPoolID) {
-			delta.Add("Spec.CognitoOptions.IDentityPoolID", a.ko.Spec.CognitoOptions.IDentityPoolID, b.ko.Spec.CognitoOptions.IDentityPoolID)
-		} else if a.ko.Spec.CognitoOptions.IDentityPoolID != nil && b.ko.Spec.CognitoOptions.IDentityPoolID != nil {
-			if *a.ko.Spec.CognitoOptions.IDentityPoolID != *b.ko.Spec.CognitoOptions.IDentityPoolID {
-				delta.Add("Spec.CognitoOptions.IDentityPoolID", a.ko.Spec.CognitoOptions.IDentityPoolID, b.ko.Spec.CognitoOptions.IDentityPoolID)
+		if ackcompare.HasNilDifference(a.ko.Spec.CognitoOptions.IdentityPoolID, b.ko.Spec.CognitoOptions.IdentityPoolID) {
+			delta.Add("Spec.CognitoOptions.IdentityPoolID", a.ko.Spec.CognitoOptions.IdentityPoolID, b.ko.Spec.CognitoOptions.IdentityPoolID)
+		} else if a.ko.Spec.CognitoOptions.IdentityPoolID != nil && b.ko.Spec.CognitoOptions.IdentityPoolID != nil {
+			if *a.ko.Spec.CognitoOptions.IdentityPoolID != *b.ko.Spec.CognitoOptions.IdentityPoolID {
+				delta.Add("Spec.CognitoOptions.IdentityPoolID", a.ko.Spec.CognitoOptions.IdentityPoolID, b.ko.Spec.CognitoOptions.IdentityPoolID)
 			}
 		}
 		if ackcompare.HasNilDifference(a.ko.Spec.CognitoOptions.RoleARN, b.ko.Spec.CognitoOptions.RoleARN) {
@@ -369,6 +390,9 @@ func newResourceDelta(
 	if ackcompare.HasNilDifference(a.ko.Spec.LogPublishingOptions, b.ko.Spec.LogPublishingOptions) {
 		delta.Add("Spec.LogPublishingOptions", a.ko.Spec.LogPublishingOptions, b.ko.Spec.LogPublishingOptions)
 	} else if a.ko.Spec.LogPublishingOptions != nil && b.ko.Spec.LogPublishingOptions != nil {
+		if !reflect.DeepEqual(a.ko.Spec.LogPublishingOptions, b.ko.Spec.LogPublishingOptions) {
+			delta.Add("Spec.LogPublishingOptions", a.ko.Spec.LogPublishingOptions, b.ko.Spec.LogPublishingOptions)
+		}
 	}
 	if ackcompare.HasNilDifference(a.ko.Spec.NodeToNodeEncryptionOptions, b.ko.Spec.NodeToNodeEncryptionOptions) {
 		delta.Add("Spec.NodeToNodeEncryptionOptions", a.ko.Spec.NodeToNodeEncryptionOptions, b.ko.Spec.NodeToNodeEncryptionOptions)
@@ -392,14 +416,15 @@ func newResourceDelta(
 			}
 		}
 	}
+	if !reflect.DeepEqual(a.ko.Spec.TagList, b.ko.Spec.TagList) {
+		delta.Add("Spec.TagList", a.ko.Spec.TagList, b.ko.Spec.TagList)
+	}
 	if ackcompare.HasNilDifference(a.ko.Spec.VPCOptions, b.ko.Spec.VPCOptions) {
 		delta.Add("Spec.VPCOptions", a.ko.Spec.VPCOptions, b.ko.Spec.VPCOptions)
 	} else if a.ko.Spec.VPCOptions != nil && b.ko.Spec.VPCOptions != nil {
-
 		if !ackcompare.SliceStringPEqual(a.ko.Spec.VPCOptions.SecurityGroupIDs, b.ko.Spec.VPCOptions.SecurityGroupIDs) {
 			delta.Add("Spec.VPCOptions.SecurityGroupIDs", a.ko.Spec.VPCOptions.SecurityGroupIDs, b.ko.Spec.VPCOptions.SecurityGroupIDs)
 		}
-
 		if !ackcompare.SliceStringPEqual(a.ko.Spec.VPCOptions.SubnetIDs, b.ko.Spec.VPCOptions.SubnetIDs) {
 			delta.Add("Spec.VPCOptions.SubnetIDs", a.ko.Spec.VPCOptions.SubnetIDs, b.ko.Spec.VPCOptions.SubnetIDs)
 		}
