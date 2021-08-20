@@ -25,6 +25,7 @@ VPC_SUBNET_CIDR_BLOCK = ["10.0.82.0/28","10.0.82.16/28"]
 class TestBootstrapResources:
     VPCID: str
     VPCSubnetIDs: list
+    ServiceLinkedRoleName: str
 
 _bootstrap_resources = None
 

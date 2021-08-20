@@ -87,21 +87,49 @@ def create_subnet(ec2, vpc_id: str, az: str, cidr: str) -> str:
     return subnet_id
 
 
+def create_service_linked_role(iam) -> str:
+    # TODO(jaypipes): There does not seem to be any way at all to list or
+    # describe service-linked-roles in IAM. So, the only way to make this work
+    # is just to check for an error when trying to create the service linked
+    # role to see if one with the same name already "has been taken in this
+    # account" (whatever that means).
+    #
+    # Once again, IAM proves why we can't have nice things.
+    try:
+        resp = iam.create_service_linked_role(
+            AWSServiceName="es.amazonaws.com",
+            Description="An SLR to allow Amazon Elasticsearch Service to work within a private VPC.",
+        )
+        slr_name = resp['Role']['RoleName']
+
+        logging.info(f"Created service-linked role {slr_name}")
+
+    except iam.exceptions.InvalidInputException as e:
+        if "Service role name AWSServiceRoleForAmazonElasticsearchService has been taken in this account" in str(e):
+            logging.info(f"Service-linked role AWSServiceRoleForAmazonElasticsearchService already exists")
+            return "AWSServiceRoleForAmazonElasticsearchService"
+        raise e
+    return slr_name
+
+
 def service_bootstrap() -> dict:
     logging.getLogger().setLevel(logging.INFO)
 
     region = identity.get_region()
     ec2 = boto3.client("ec2", region_name=region)
+    iam = boto3.client("iam", region_name=region)
     # only normal zones, no localzones
     azs = map(lambda zone: zone['ZoneName'],
             filter(lambda zone: zone['OptInStatus'] == 'opt-in-not-required', ec2.describe_availability_zones()['AvailabilityZones']))
 
     vpc_id = create_vpc(ec2)
     subnets = [create_subnet(ec2, vpc_id, az, cidr) for (cidr,az) in zip(VPC_SUBNET_CIDR_BLOCK, azs)]
+    slr_name = create_service_linked_role(iam)
 
     return TestBootstrapResources(
         vpc_id,
-        subnets
+        subnets,
+        slr_name,
     ).__dict__
 
 

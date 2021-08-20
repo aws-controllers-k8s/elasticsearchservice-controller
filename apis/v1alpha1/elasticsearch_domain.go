@@ -20,7 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ElasticsearchDomainSpec defines the desired state of ElasticsearchDomain
+// ElasticsearchDomainSpec defines the desired state of ElasticsearchDomain.
 type ElasticsearchDomainSpec struct {
 	// IAM access policy as a JSON-formatted string.
 	AccessPolicies *string `json:"accessPolicies,omitempty"`
@@ -31,6 +31,8 @@ type ElasticsearchDomainSpec struct {
 	AdvancedOptions map[string]*string `json:"advancedOptions,omitempty"`
 	// Specifies advanced security options.
 	AdvancedSecurityOptions *AdvancedSecurityOptionsInput `json:"advancedSecurityOptions,omitempty"`
+	// Specifies Auto-Tune options.
+	AutoTuneOptions *AutoTuneOptionsInput `json:"autoTuneOptions,omitempty"`
 	// Options to specify the Cognito user and identity pools for Kibana authentication.
 	// For more information, see Amazon Cognito Authentication for Kibana (http://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/es-cognito-auth.html).
 	CognitoOptions *CognitoOptions `json:"cognitoOptions,omitempty"`
@@ -62,6 +64,8 @@ type ElasticsearchDomainSpec struct {
 	// Option to set time, in UTC format, of the daily automated snapshot. Default
 	// value is 0 hours.
 	SnapshotOptions *SnapshotOptions `json:"snapshotOptions,omitempty"`
+	// A list of Tag added during domain creation.
+	TagList []*Tag `json:"tagList,omitempty"`
 	// Options to specify the subnets and security groups for VPC endpoint. For
 	// more information, see Creating a VPC (http://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/es-vpc.html#es-creating-vpc)
 	// in VPC Endpoints for Amazon Elasticsearch Service Domains
@@ -73,36 +77,46 @@ type ElasticsearchDomainStatus struct {
 	// All CRs managed by ACK have a common `Status.ACKResourceMetadata` member
 	// that is used to contain resource sync state, account ownership,
 	// constructed ARN for the resource
+	// +kubebuilder:validation:Optional
 	ACKResourceMetadata *ackv1alpha1.ResourceMetadata `json:"ackResourceMetadata"`
 	// All CRS managed by ACK have a common `Status.Conditions` member that
 	// contains a collection of `ackv1alpha1.Condition` objects that describe
 	// the various terminal states of the CR and its backend AWS service API
 	// resource
+	// +kubebuilder:validation:Optional
 	Conditions []*ackv1alpha1.Condition `json:"conditions"`
 	// The domain creation status. True if the creation of an Elasticsearch domain
 	// is complete. False if domain creation is still in progress.
+	// +kubebuilder:validation:Optional
 	Created *bool `json:"created,omitempty"`
 	// The domain deletion status. True if a delete request has been received for
 	// the domain but resource cleanup is still in progress. False if the domain
 	// has not been deleted. Once domain deletion is complete, the status of the
 	// domain is no longer returned.
+	// +kubebuilder:validation:Optional
 	Deleted *bool `json:"deleted,omitempty"`
 	// The unique identifier for the specified Elasticsearch domain.
+	// +kubebuilder:validation:Optional
 	DomainID *string `json:"domainID,omitempty"`
 	// The Elasticsearch domain endpoint that you use to submit index and search
 	// requests.
+	// +kubebuilder:validation:Optional
 	Endpoint *string `json:"endpoint,omitempty"`
 	// Map containing the Elasticsearch domain endpoints used to submit index and
 	// search requests. Example key, value: 'vpc','vpc-endpoint-h2dsd34efgyghrtguk5gt6j2foh4.us-east-1.es.amazonaws.com'.
+	// +kubebuilder:validation:Optional
 	Endpoints map[string]*string `json:"endpoints,omitempty"`
 	// The status of the Elasticsearch domain configuration. True if Amazon Elasticsearch
 	// Service is processing configuration changes. False if the configuration is
 	// active.
+	// +kubebuilder:validation:Optional
 	Processing *bool `json:"processing,omitempty"`
 	// The current status of the Elasticsearch domain's service software.
+	// +kubebuilder:validation:Optional
 	ServiceSoftwareOptions *ServiceSoftwareOptions `json:"serviceSoftwareOptions,omitempty"`
 	// The status of an Elasticsearch domain version upgrade. True if Amazon Elasticsearch
 	// Service is undergoing a version upgrade. False if the configuration is active.
+	// +kubebuilder:validation:Optional
 	UpgradeProcessing *bool `json:"upgradeProcessing,omitempty"`
 }
 

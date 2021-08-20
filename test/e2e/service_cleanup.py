@@ -42,6 +42,22 @@ def delete_vpc(vpc_id: str):
     logging.info(f"Deleted VPC {vpc_id}")
 
 
+def delete_service_linked_role(slr_name: str):
+    region = identity.get_region()
+    iam = boto3.client("iam", region_name=region)
+    
+    iam.delete_service_linked_role(slr_name)
+
+    # NOTE(jaypipes): delete-service-linked-role returns a "DeletionTaskId"
+    # that you can use to "check on" the status of your deletion request using
+    # a separate get-service-linked-role-deletion-status command. Yes, that is
+    # actually the name of the command...
+    #
+    # Perhaps add some waiter here that checks on the deletion status. For now,
+    # just assume the request eventually succeeded.
+
+    logging.info(f"Deleted service-linked role {slr_name}")
+
 def service_cleanup(config: dict):
     logging.getLogger().setLevel(logging.INFO)
 
@@ -59,6 +75,11 @@ def service_cleanup(config: dict):
         delete_vpc(resources.VPCID)
     except:
         logging.exception(f"Unable to delete VPC {resources.VPCID}")
+
+    try:
+        delete_service_linked_role(resources.ServiceLinkedRoleName)
+    except:
+        logging.exception(f"Unable to delete SLR {resources.ServiceLinkedRoleName}")
 
 
 if __name__ == "__main__":   
