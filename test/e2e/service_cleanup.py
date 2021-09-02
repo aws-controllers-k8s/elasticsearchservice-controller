@@ -46,7 +46,7 @@ def delete_service_linked_role(slr_name: str):
     region = identity.get_region()
     iam = boto3.client("iam", region_name=region)
     
-    iam.delete_service_linked_role(slr_name)
+    iam.delete_service_linked_role(RoleName=slr_name)
 
     # NOTE(jaypipes): delete-service-linked-role returns a "DeletionTaskId"
     # that you can use to "check on" the status of your deletion request using
