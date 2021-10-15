@@ -1,3 +1,7 @@
+# ⚠️  DEPRECATED
+
+Further development has moved to [aws-controllers-k8s/opensearchservice-controller](https://github.com/aws-controllers-k8s/opensearchservice-controller). This controller is no longer being actively developed.
+
 # ACK service controller for Amazon Elasticsearch Service (AES)
 
 This repository contains source code for the AWS Controllers for Kubernetes
